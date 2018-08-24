@@ -1,6 +1,6 @@
 # inedox-docker
 
-[![Build status](https://ci.appveyor.com/api/projects/status/058m55ysndy8e920/branch/master?svg=true)](https://ci.appveyor.com/project/Inedo/inedox-chocolatey/branch/master)
+[![Build status](https://ci.appveyor.com/api/projects/status/l4sb0891ugp8ta8y/branch/master?svg=true)](https://ci.appveyor.com/project/Inedo/inedox-docker/branch/master)
 
 Provides operations that act on Docker and Docker Compose.
 
