@@ -80,6 +80,7 @@ namespace Inedo.Extensions.Docker.Operations.Compose
                 await fileOps.WriteAllTextAsync(composeFileName, this.ComposeFileYaml);
 
                 this.LogDebug($"Working directory: {startInfo.WorkingDirectory}");
+                await fileOps.CreateDirectoryAsync(startInfo.WorkingDirectory);
                 this.LogDebug($"Running command: {escapeArg(startInfo.FileName)} {startInfo.Arguments}");
 
                 int? exitCode;
