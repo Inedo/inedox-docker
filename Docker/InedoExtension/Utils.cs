@@ -32,7 +32,7 @@ namespace Inedo.Extensions.Docker
                 if (c == '"')
                 {
                     str.Append('\\', slashes);
-                    str.Append('\\', '"');
+                    str.Append("\\\"");
                     slashes = 0;
                 }
                 else if (c == '\\')
