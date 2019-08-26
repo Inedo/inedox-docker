@@ -1,7 +1,9 @@
 ﻿using System.Collections.Generic;
+using System.ComponentModel;
 using System.Threading.Tasks;
 using Inedo.Agents;
 using Inedo.Diagnostics;
+using Inedo.Extensibility;
 using Inedo.Extensibility.Operations;
 
 namespace Inedo.Extensions.Docker.Operations
@@ -12,13 +14,19 @@ namespace Inedo.Extensions.Docker.Operations
         {
         }
 
+        [Category("Advanced")]
+        [DisplayName("Docker client path")]
+        [ScriptAlias("DockerExePath")]
+        [DefaultValue("$DockerExePath")]
+        public string DockerExePath { get; set; }
+
         protected async Task<ProcessOutput> ExecuteDockerAsync(IOperationExecutionContext context, string command, string arguments, string workingDirectory)
         {
             var output = new List<string>();
             var error = new List<string>();
 
             var exec = await context.Agent.GetServiceAsync<IRemoteProcessExecuter>();
-            using (var process = exec.CreateProcess(new RemoteProcessStartInfo { FileName = "docker", Arguments = command + " " + arguments, WorkingDirectory = workingDirectory }))
+            using (var process = exec.CreateProcess(new RemoteProcessStartInfo { FileName = this.DockerExePath, Arguments = command + " " + arguments, WorkingDirectory = workingDirectory }))
             {
                 process.OutputDataReceived += (s, e) => write(e.Data, output);
                 process.ErrorDataReceived += (s, e) => write(e.Data, error);

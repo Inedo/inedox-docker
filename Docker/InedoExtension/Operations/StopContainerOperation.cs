@@ -12,7 +12,7 @@ namespace Inedo.Extensions.Docker.Operations
     [ScriptAlias("Stop-Container")]
     [ScriptNamespace("Docker")]
     [Description("Stops a Docker container.")]
-    public sealed class StopContainerOperation : ExecuteOperation
+    public sealed class StopContainerOperation : DockerOperation
     {
         [Required]
         [ScriptAlias("Container")]
@@ -30,7 +30,7 @@ namespace Inedo.Extensions.Docker.Operations
                 context,
                 new RemoteProcessStartInfo
                 {
-                    FileName = "docker",
+                    FileName = this.DockerExePath,
                     Arguments = "stop " + this.ContainerName
                 }
             );
@@ -43,7 +43,7 @@ namespace Inedo.Extensions.Docker.Operations
                     context,
                     new RemoteProcessStartInfo
                     {
-                        FileName = "docker",
+                        FileName = this.DockerExePath,
                         Arguments = "rm " + this.ContainerName
                     }
                 );

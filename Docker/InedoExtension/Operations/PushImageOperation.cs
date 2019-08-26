@@ -68,7 +68,7 @@ namespace Inedo.Extensions.Docker.Operations
                 context,
                 new RemoteProcessStartInfo
                 {
-                    FileName = "docker",
+                    FileName = this.DockerExePath,
                     Arguments = $"tag {this.RepositoryName}:{this.Tag} {remoteTagName}"
                 }
             );
@@ -77,7 +77,7 @@ namespace Inedo.Extensions.Docker.Operations
                 context,
                 new RemoteProcessStartInfo
                 {
-                    FileName = "docker",
+                    FileName = this.DockerExePath,
                     Arguments = $"push {remoteTagName}"
                 }
             );

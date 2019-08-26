@@ -68,7 +68,7 @@ namespace Inedo.Extensions.Docker.Operations
                 context,
                 new RemoteProcessStartInfo
                 {
-                    FileName = "docker",
+                    FileName = this.DockerExePath,
                     Arguments = argsText
                 }
             );

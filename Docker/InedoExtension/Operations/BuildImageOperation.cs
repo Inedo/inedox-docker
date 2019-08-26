@@ -21,7 +21,7 @@ namespace Inedo.Extensions.Docker.Operations
         [ScriptAlias("DockerfileAsset")]
         [DisplayName("Dockerfile text template")]
         public string DockerfileTemplate { get; set; }
-        [ScriptAlias("TempalteArguments")]
+        [ScriptAlias("TemplateArguments")]
         [DisplayName("Addtional template arguments")]
         public IDictionary<string, RuntimeValue> TemplateArguments { get; set; }
         [ScriptAlias("From")]
@@ -84,7 +84,7 @@ namespace Inedo.Extensions.Docker.Operations
                 context,
                 new RemoteProcessStartInfo
                 {
-                    FileName = "docker",
+                    FileName = this.DockerExePath,
                     Arguments = args,
                     WorkingDirectory = sourcePath
                 }
