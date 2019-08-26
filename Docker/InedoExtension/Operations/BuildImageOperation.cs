@@ -77,7 +77,7 @@ namespace Inedo.Extensions.Docker.Operations
                 await fileOps.WriteAllTextAsync(dockerfilePath, dockerfileText, InedoLib.UTF8Encoding);
             }
 
-            var args = $"build --tag={this.RepositoryName}:{this.Tag} {this.AdditionalArguments} .";
+            var args = $"build --force-rm --progress=plain --tag={this.RepositoryName}:{this.Tag} {this.AdditionalArguments} .";
             this.LogDebug("Executing docker " + args);
 
             await this.ExecuteCommandLineAsync(
@@ -86,7 +86,11 @@ namespace Inedo.Extensions.Docker.Operations
                 {
                     FileName = this.DockerExePath,
                     Arguments = args,
-                    WorkingDirectory = sourcePath
+                    WorkingDirectory = sourcePath,
+                    EnvironmentVariables =
+                    {
+                        ["DOCKER_BUILDKIT"] = "1"
+                    }
                 }
             );
 
