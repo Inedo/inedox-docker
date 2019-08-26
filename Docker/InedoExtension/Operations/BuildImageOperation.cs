@@ -34,6 +34,7 @@ namespace Inedo.Extensions.Docker.Operations
         public string RepositoryName { get; set; }
         [Required]
         [ScriptAlias("Tag")]
+        [PlaceholderText("eg. $ReleaseNumber-ci.$BuildNumber")]
         public string Tag { get; set; }
         [ScriptAlias("AdditionalArguments")]
         [DisplayName("Addtional arguments")]
