@@ -10,6 +10,7 @@ namespace Inedo.Extensions.Docker.Operations
 {
     [ScriptAlias("Tag-Image")]
     [ScriptNamespace("Docker")]
+    [DisplayName("Retag Docker Image")]
     [Description("Applies a new tag a Docker image.")]
     public sealed class TagImageOperation : DockerOperation
     {

@@ -9,6 +9,8 @@ using Inedo.ExecutionEngine;
 using Inedo.Extensibility;
 using Inedo.Extensibility.Operations;
 using Inedo.Extensibility.RaftRepositories;
+using Inedo.Web;
+using Inedo.Web.Plans.ArgumentEditors;
 
 namespace Inedo.Extensions.Docker.Operations
 {
@@ -23,10 +25,13 @@ namespace Inedo.Extensions.Docker.Operations
         public string DockerfileTemplate { get; set; }
         [ScriptAlias("TemplateArguments")]
         [DisplayName("Addtional template arguments")]
+        [FieldEditMode(FieldEditMode.Multiline)]
+        [PlaceholderText("eg. %(name: value, ...)")]
         public IDictionary<string, RuntimeValue> TemplateArguments { get; set; }
         [ScriptAlias("From")]
         [DisplayName("From")]
         [PlaceholderText("$WorkingDirectory")]
+        [FilePathEditor]
         public string SourceDirectory { get; set; }
         [Required]
         [ScriptAlias("Repository")]

@@ -14,6 +14,7 @@ namespace Inedo.Extensions.Docker.Operations
 {
     [ScriptAlias("Run-Container")]
     [ScriptNamespace("Docker")]
+    [DisplayName("Run Docker Container")]
     [Description("Runs a Docker container.")]
     public sealed class RunContainerOperation : DockerOperation
     {

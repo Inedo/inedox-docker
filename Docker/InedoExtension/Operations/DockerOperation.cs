@@ -3,11 +3,13 @@ using System.ComponentModel;
 using System.Threading.Tasks;
 using Inedo.Agents;
 using Inedo.Diagnostics;
+using Inedo.Documentation;
 using Inedo.Extensibility;
 using Inedo.Extensibility.Operations;
 
 namespace Inedo.Extensions.Docker.Operations
 {
+    [Tag("docker"), Tag("containers")]
     public abstract class DockerOperation : ExecuteOperation
     {
         protected DockerOperation()

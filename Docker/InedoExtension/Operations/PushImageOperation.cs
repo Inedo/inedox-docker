@@ -14,6 +14,7 @@ namespace Inedo.Extensions.Docker.Operations
 {
     [ScriptAlias("Push-Image")]
     [ScriptNamespace("Docker")]
+    [DisplayName("Push Docker Image")]
     [Description("Pushes a Docker image.")]
     public sealed class PushImageOperation : DockerOperation
     {
