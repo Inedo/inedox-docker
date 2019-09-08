@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
 using System.Threading.Tasks;
@@ -116,7 +117,7 @@ namespace Inedo.Extensions.Docker.Operations
             if (text.StartsWith("#") && text.Contains(" ") && int.TryParse(text.Substring(1, text.IndexOf(' ') - 1), out var scopeNum))
             {
                 var message = text.Substring(text.IndexOf(' ') + 1);
-                var firstWord = message.Substring(0, message.IndexOf(' '));
+                var firstWord = message.Substring(0, Math.Max(message.IndexOf(' '), 0));
 
                 MessageLevel level;
                 if (decimal.TryParse(firstWord, out var timeSpent))
