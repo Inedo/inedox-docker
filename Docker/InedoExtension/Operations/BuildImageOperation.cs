@@ -136,7 +136,7 @@ namespace Inedo.Extensions.Docker.Operations
                 }
                 else
                 {
-                    level = MessageLevel.Warning;
+                    level = MessageLevel.Information;
                 }
 
                 if (LogScopes.TryGetValue(scopeNum, out var logScope))
@@ -153,7 +153,7 @@ namespace Inedo.Extensions.Docker.Operations
             else
             {
                 // a continuation of the previous non-build-process message
-                this.LogWarning(text.TrimEnd('\r'));
+                this.LogError(text.TrimEnd('\r'));
             }
         }
 
