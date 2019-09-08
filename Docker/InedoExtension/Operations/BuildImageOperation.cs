@@ -113,7 +113,7 @@ namespace Inedo.Extensions.Docker.Operations
 
         protected override void LogProcessError(string text)
         {
-            if (text.StartsWith("#") && int.TryParse(text.Substring(1, text.IndexOf(' ') - 1), out var scopeNum))
+            if (text.StartsWith("#") && text.Contains(" ") && int.TryParse(text.Substring(1, text.IndexOf(' ') - 1), out var scopeNum))
             {
                 var message = text.Substring(text.IndexOf(' ') + 1);
                 var firstWord = message.Substring(0, message.IndexOf(' '));
