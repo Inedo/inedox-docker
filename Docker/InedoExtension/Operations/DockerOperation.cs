@@ -1,9 +1,12 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.ComponentModel;
+using System.Linq;
 using System.Threading.Tasks;
 using Inedo.Agents;
 using Inedo.Diagnostics;
 using Inedo.Documentation;
+using Inedo.ExecutionEngine.Executer;
 using Inedo.Extensibility;
 using Inedo.Extensibility.Operations;
 
@@ -88,6 +91,30 @@ namespace Inedo.Extensions.Docker.Operations
             public int ExitCode { get; }
             public List<string> Output { get; }
             public List<string> Error { get; }
+        }
+
+        protected static string GetContainerSourceServerName(string name)
+        {
+            if (string.IsNullOrEmpty(name))
+                return string.Empty;
+
+            var source = SDK.GetContainerSources()
+                .FirstOrDefault(s => string.Equals(s.Name, name, StringComparison.OrdinalIgnoreCase));
+
+            if (source == null)
+            {
+                throw new ExecutionFailureException($"Container source \"{name}\" not found.");
+            }
+
+            return GetServerName(source.RegistryUrl);
+        }
+
+        protected static string GetServerName(string url)
+        {
+            if (!Uri.TryCreate(url, UriKind.Absolute, out var uri))
+                throw new ExecutionFailureException("Invalid container registry URL: " + url);
+
+            return $"{uri.Host}:{uri.Port}{uri.AbsolutePath.TrimEnd('/')}/";
         }
     }
 }

@@ -2,14 +2,17 @@
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 using Inedo.Agents;
 using Inedo.Diagnostics;
 using Inedo.Documentation;
 using Inedo.ExecutionEngine;
+using Inedo.ExecutionEngine.Executer;
 using Inedo.Extensibility;
 using Inedo.Extensibility.Operations;
 using Inedo.Extensibility.RaftRepositories;
+using Inedo.Extensions.Docker.SuggestionProviders;
 using Inedo.Web;
 using Inedo.Web.Plans.ArgumentEditors;
 
@@ -29,6 +32,10 @@ namespace Inedo.Extensions.Docker.Operations
         [FieldEditMode(FieldEditMode.Multiline)]
         [PlaceholderText("eg. %(name: value, ...)")]
         public IDictionary<string, RuntimeValue> TemplateArguments { get; set; }
+        [ScriptAlias("Source")]
+        [DisplayName("Container Source")]
+        [SuggestableValue(typeof(ContainerSourceSuggestionProvider))]
+        public string ContainerSource { get; set; }
         [ScriptAlias("From")]
         [DisplayName("From")]
         [PlaceholderText("$WorkingDirectory")]
@@ -84,7 +91,9 @@ namespace Inedo.Extensions.Docker.Operations
                 await fileOps.WriteAllTextAsync(dockerfilePath, dockerfileText, InedoLib.UTF8Encoding);
             }
 
-            var args = $"build --force-rm --progress=plain --tag={this.RepositoryName}:{this.Tag} {this.AdditionalArguments} .";
+            var repositoryName = GetContainerSourceServerName(this.ContainerSource) + this.RepositoryName;
+
+            var args = $"build --force-rm --progress=plain --tag={repositoryName}:{this.Tag} {this.AdditionalArguments} .";
             this.LogDebug("Executing docker " + args);
 
             var exitCode = await this.ExecuteCommandLineAsync(
@@ -107,7 +116,7 @@ namespace Inedo.Extensions.Docker.Operations
             }
 
             if (this.AttachToBuild)
-                await this.AttachToBuildAsync(context, this.RepositoryName, this.Tag);
+                await this.AttachToBuildAsync(context, this.RepositoryName, this.Tag, this.ContainerSource);
         }
 
         private readonly Dictionary<int, object> LogScopes = new Dictionary<int, object>();

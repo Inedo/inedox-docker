@@ -9,6 +9,8 @@ using Inedo.ExecutionEngine.Executer;
 using Inedo.Extensibility;
 using Inedo.Extensibility.Credentials;
 using Inedo.Extensibility.Operations;
+using Inedo.Extensions.Docker.SuggestionProviders;
+using Inedo.Web;
 
 namespace Inedo.Extensions.Docker.Operations
 {
@@ -28,6 +30,7 @@ namespace Inedo.Extensions.Docker.Operations
         [Required]
         [ScriptAlias("To")]
         [DisplayName("To")]
+        [SuggestableValue(typeof(ContainerSourceSuggestionProvider))]
         public string ContainerSource { get; set; }
         [ScriptAlias("AttachToBuild")]
         [DisplayName("Attach to build")]
@@ -64,15 +67,6 @@ namespace Inedo.Extensions.Docker.Operations
             var rootUrl = GetServerName(source.RegistryUrl);
 
             var remoteTagName = $"{rootUrl}{this.RepositoryName}:{this.Tag}";
-
-            await this.ExecuteCommandLineAsync(
-                context,
-                new RemoteProcessStartInfo
-                {
-                    FileName = this.DockerExePath,
-                    Arguments = $"tag {this.RepositoryName}:{this.Tag} {remoteTagName}"
-                }
-            );
 
             await this.ExecuteCommandLineAsync(
                 context,
@@ -143,14 +137,6 @@ namespace Inedo.Extensions.Docker.Operations
                 throw new ExecutionFailureException("Docker login failed with exit code " + result.ExitCode);
 
             return true;
-        }
-
-        private static string GetServerName(string url)
-        {
-            if (!Uri.TryCreate(url, UriKind.Absolute, out var uri))
-                throw new ExecutionFailureException("Invalid container registry URL: " + url);
-
-            return $"{uri.Host}:{uri.Port}{uri.AbsolutePath.TrimEnd('/')}/";
         }
     }
 }

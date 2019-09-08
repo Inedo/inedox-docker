@@ -5,6 +5,8 @@ using Inedo.Diagnostics;
 using Inedo.Documentation;
 using Inedo.Extensibility;
 using Inedo.Extensibility.Operations;
+using Inedo.Extensions.Docker.SuggestionProviders;
+using Inedo.Web;
 
 namespace Inedo.Extensions.Docker.Operations
 {
@@ -15,33 +17,62 @@ namespace Inedo.Extensions.Docker.Operations
     public sealed class TagImageOperation : DockerOperation
     {
         [Required]
+        [Category("Source")]
         [ScriptAlias("Repository")]
         [DisplayName("Repository name")]
         public string RepositoryName { get; set; }
         [Required]
+        [Category("Source")]
         [ScriptAlias("OriginalTag")]
         [DisplayName("Original tag")]
         public string OriginalTag { get; set; }
         [Required]
+        [Category("Source")]
+        [ScriptAlias("Source")]
+        [DisplayName("Container source")]
+        [SuggestableValue(typeof(ContainerSourceSuggestionProvider))]
+        public string ContainerSource { get; set; }
+        [Category("Source")]
+        [ScriptAlias("DeactivateOriginalTag")]
+        [DisplayName("Remove from build")]
+        public bool DeactivateOriginalTag { get; set; }
+
+        [Category("Destination")]
+        [ScriptAlias("NewRepository")]
+        [DisplayName("Repository name")]
+        [PlaceholderText("(same as original repository name)")]
+        public string NewRepositoryName { get; set; }
+        [Required]
+        [Category("Destination")]
         [ScriptAlias("NewTag")]
         [DisplayName("New tag")]
         public string NewTag { get; set; }
-        [Required]
-        [ScriptAlias("Source")]
-        [DisplayName("Container source")]
-        public string ContainerSource { get; set; }
+        [Category("Destination")]
+        [ScriptAlias("NewSource")]
+        [DisplayName("New container source")]
+        [SuggestableValue(typeof(ContainerSourceSuggestionProvider))]
+        [PlaceholderText("(same as original container source)")]
+        public string NewContainerSource { get; set; }
+        [Category("Destination")]
         [ScriptAlias("AttachToBuild")]
         [DisplayName("Attach to build")]
-        [DefaultValue(true)]
-        public bool AttachToBuild { get; set; } = true;
-        [ScriptAlias("DeactivateOriginalTag")]
-        [DisplayName("Deactivate original tag")]
-        [DefaultValue(true)]
-        public bool DeactivateOriginalTag { get; set; } = true;
+        public bool AttachToBuild { get; set; }
 
         public override async Task ExecuteAsync(IOperationExecutionContext context)
         {
-            var args = $"tag {this.RepositoryName}:{this.OriginalTag} {this.RepositoryName}:{this.NewTag}";
+            this.NewRepositoryName = AH.CoalesceString(this.NewRepositoryName, this.RepositoryName);
+            if (string.IsNullOrEmpty(this.NewContainerSource))
+            {
+                if (this.NewContainerSource == null)
+                    this.NewContainerSource = this.ContainerSource;
+                else
+                    this.NewContainerSource = null;
+            }
+
+            var sourceRootUrl = GetContainerSourceServerName(this.ContainerSource);
+            var destRootUrl = GetContainerSourceServerName(this.NewContainerSource);
+
+            var args = $"tag {sourceRootUrl}{this.RepositoryName}:{this.OriginalTag} {destRootUrl}{this.NewRepositoryName}:{this.NewTag}";
 
             int result = await this.ExecuteCommandLineAsync(
                 context,
@@ -57,20 +88,20 @@ namespace Inedo.Extensions.Docker.Operations
                 return;
 
             if (this.AttachToBuild)
-                await this.AttachToBuildAsync(context, this.RepositoryName, this.NewTag, this.ContainerSource);
+                await this.AttachToBuildAsync(context, this.NewRepositoryName, this.NewTag, this.NewContainerSource);
 
             if (this.DeactivateOriginalTag)
-                await this.DeactivateAttachedAsync(context, this.RepositoryName, this.NewTag, this.ContainerSource);
+                await this.DeactivateAttachedAsync(context, this.RepositoryName, this.OriginalTag, this.ContainerSource);
         }
 
         protected override ExtendedRichDescription GetDescription(IOperationConfiguration config)
         {
             return new ExtendedRichDescription(
                 new RichDescription(
-                    "Tag ",
+                    "Retag ",
                     new Hilite(config[nameof(RepositoryName)] + ":" + config[nameof(OriginalTag)]),
-                    " with ",
-                     new Hilite(config[nameof(RepositoryName)] + ":" + config[nameof(NewTag)])
+                    " to ",
+                     new Hilite(AH.CoalesceString(config[nameof(RepositoryName)], config[nameof(NewRepositoryName)]) + ":" + config[nameof(NewTag)])
                 )
             );
         }

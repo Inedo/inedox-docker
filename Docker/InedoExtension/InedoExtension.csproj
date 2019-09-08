@@ -74,6 +74,7 @@
     <Compile Include="Operations\StopContainerOperation.cs" />
     <Compile Include="Operations\TagImageOperation.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="SuggestionProviders\ContainerSourceSuggestionProvider.cs" />
     <Compile Include="Utils.cs" />
     <Compile Include="VariableFunctions\DockerExePathVariableFunction.cs" />
   </ItemGroup>
