@@ -111,6 +111,7 @@ namespace Inedo.Extensions.Docker.Operations
         }
 
         private readonly Dictionary<int, object> LogScopes = new Dictionary<int, object>();
+        private MessageLevel LastLogLevel = MessageLevel.Error;
 
         protected override void LogProcessError(string text)
         {
@@ -140,7 +141,7 @@ namespace Inedo.Extensions.Docker.Operations
                     level = MessageLevel.Information;
                 }
 
-                if (LogScopes.TryGetValue(scopeNum, out var logScope))
+                if (this.LogScopes.TryGetValue(scopeNum, out var logScope))
                 {
                     // TODO: write to scoped log
                     this.Log(level, message);
@@ -150,11 +151,13 @@ namespace Inedo.Extensions.Docker.Operations
                     // TODO: create scoped log
                     this.Log(level, message);
                 }
+
+                this.LastLogLevel = level;
             }
-            else if (!string.IsNullOrWhiteSpace(text))
+            else
             {
                 // a continuation of the previous non-build-process message
-                this.LogError(text.TrimEnd('\r'));
+                this.Log(this.LastLogLevel, text.TrimEnd('\r'));
             }
         }
 
