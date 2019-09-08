@@ -126,8 +126,8 @@ namespace Inedo.Extensions.Docker.Operations
 
             var bmContext = (IStandardContext)context;
 
-            if (!(ResourceCredentials.Create("UsernamePassword", source.Name, bmContext.EnvironmentId, bmContext.ProjectId, true) is UsernamePasswordCredentials credentials))
-                throw new ExecutionFailureException($"Credentials \"{source.Name}\" does not refer to a Username & Password credentials.");
+            if (!(ResourceCredentials.Create("UsernamePassword", source.CredentialName, bmContext.EnvironmentId, bmContext.ProjectId, true) is UsernamePasswordCredentials credentials))
+                throw new ExecutionFailureException($"Credentials \"{source.CredentialName}\" does not refer to a Username & Password credentials.");
 
             var server = GetServerName(source.RegistryUrl);
             this.LogDebug($"Executing docker login (user: {credentials.UserName}, server: {server})");
