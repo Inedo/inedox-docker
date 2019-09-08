@@ -150,7 +150,7 @@ namespace Inedo.Extensions.Docker.Operations
                     this.Log(level, message);
                 }
             }
-            else
+            else if (!string.IsNullOrWhiteSpace(text))
             {
                 // a continuation of the previous non-build-process message
                 this.LogError(text.TrimEnd('\r'));
