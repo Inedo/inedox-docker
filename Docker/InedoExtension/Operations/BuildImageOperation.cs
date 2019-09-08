@@ -86,7 +86,7 @@ namespace Inedo.Extensions.Docker.Operations
             var args = $"build --force-rm --progress=plain --tag={this.RepositoryName}:{this.Tag} {this.AdditionalArguments} .";
             this.LogDebug("Executing docker " + args);
 
-            await this.ExecuteCommandLineAsync(
+            var exitCode = await this.ExecuteCommandLineAsync(
                 context,
                 new RemoteProcessStartInfo
                 {
@@ -99,9 +99,62 @@ namespace Inedo.Extensions.Docker.Operations
                     }
                 }
             );
+            if (exitCode != 0)
+            {
+                this.LogError($"exit code: {exitCode}");
+                return;
+            }
 
             if (this.AttachToBuild)
                 await this.AttachToBuildAsync(context, this.RepositoryName, this.Tag);
+        }
+
+        private readonly Dictionary<int, object> LogScopes = new Dictionary<int, object>();
+
+        protected override void LogProcessError(string text)
+        {
+            if (text.StartsWith("#") && int.TryParse(text.Substring(1, text.IndexOf(' ') - 1), out var scopeNum))
+            {
+                var message = text.Substring(text.IndexOf(' ') + 1);
+                var firstWord = message.Substring(0, message.IndexOf(' '));
+
+                MessageLevel level;
+                if (decimal.TryParse(firstWord, out var timeSpent))
+                {
+                    level = MessageLevel.Debug;
+                    message = message.Substring(message.IndexOf(' ') + 1).TrimEnd('\r');
+                    message = message.Substring(message.LastIndexOf('\r') + 1);
+                    // TODO: log is from build process
+                }
+                else if (firstWord == "DONE")
+                {
+                    level = MessageLevel.Information;
+                }
+                else if (firstWord == "ERROR")
+                {
+                    level = MessageLevel.Error;
+                }
+                else
+                {
+                    level = MessageLevel.Warning;
+                }
+
+                if (LogScopes.TryGetValue(scopeNum, out var logScope))
+                {
+                    // TODO: write to scoped log
+                    this.Log(level, message);
+                }
+                else
+                {
+                    // TODO: create scoped log
+                    this.Log(level, message);
+                }
+            }
+            else
+            {
+                // a continuation of the previous non-build-process message
+                this.LogWarning(text.TrimEnd('\r'));
+            }
         }
 
         protected override ExtendedRichDescription GetDescription(IOperationConfiguration config)

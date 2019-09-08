@@ -4,7 +4,6 @@ using System.Threading.Tasks;
 using Inedo.Documentation;
 using Inedo.Extensibility;
 using Inedo.Extensibility.Operations;
-using Inedo.Extensions.Docker.SuggestionProviders;
 using Inedo.Web;
 
 namespace Inedo.Extensions.Docker.Operations.Compose
