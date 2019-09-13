@@ -12,8 +12,8 @@ namespace Inedo.Extensions.Docker.Operations
 {
     [ScriptAlias("Tag-Image")]
     [ScriptNamespace("Docker")]
-    [DisplayName("Retag Docker Image")]
-    [Description("Applies a new tag a Docker image.")]
+    [DisplayName("Tag Docker Image")]
+    [Description("Applies a new tag to a Docker image in the specified container source.")]
     public sealed class TagImageOperation : DockerOperation
     {
         [Required]
@@ -35,7 +35,8 @@ namespace Inedo.Extensions.Docker.Operations
         [Category("Source")]
         [ScriptAlias("DeactivateOriginalTag")]
         [DisplayName("Remove from build")]
-        public bool DeactivateOriginalTag { get; set; }
+        [DefaultValue(true)]
+        public bool DeactivateOriginalTag { get; set; } = true;
 
         [Category("Destination")]
         [ScriptAlias("NewRepository")]
@@ -56,12 +57,13 @@ namespace Inedo.Extensions.Docker.Operations
         [Category("Destination")]
         [ScriptAlias("AttachToBuild")]
         [DisplayName("Attach to build")]
-        public bool AttachToBuild { get; set; }
+        [DefaultValue(true)]
+        public bool AttachToBuild { get; set; } = true;
 
         public override async Task ExecuteAsync(IOperationExecutionContext context)
         {
             this.NewRepositoryName = AH.CoalesceString(this.NewRepositoryName, this.RepositoryName);
-            if (string.IsNullOrEmpty(this.NewContainerSource))
+            if (string.IsNullOrWhiteSpace(this.NewContainerSource))
             {
                 if (this.NewContainerSource == null)
                     this.NewContainerSource = this.ContainerSource;
@@ -69,38 +71,49 @@ namespace Inedo.Extensions.Docker.Operations
                     this.NewContainerSource = null;
             }
 
-            var sourceRootUrl = GetContainerSourceServerName(this.ContainerSource);
-            var destRootUrl = GetContainerSourceServerName(this.NewContainerSource);
+            var oldContainerId = new ContainerId(this.ContainerSource, this.RepositoryName, this.OriginalTag);
+            var newContainerId = new ContainerId(this.NewContainerSource, this.NewRepositoryName, this.NewTag);
 
-            var args = $"tag {sourceRootUrl}{this.RepositoryName}:{this.OriginalTag} {destRootUrl}{this.NewRepositoryName}:{this.NewTag}";
+            if (!string.IsNullOrEmpty(this.ContainerSource))
+                oldContainerId = await this.PullAsync(context, oldContainerId);
+            else
+                oldContainerId = oldContainerId.WithDigest(await this.ExecuteGetDigest(context, oldContainerId.FullName));
+
+            newContainerId = newContainerId.WithDigest(oldContainerId.Digest);
 
             int result = await this.ExecuteCommandLineAsync(
                 context,
                 new RemoteProcessStartInfo
                 {
                     FileName = this.DockerExePath,
-                    Arguments = args
+                    Arguments = $"tag {oldContainerId.FullName} {newContainerId.FullName}"
                 }
             );
-
-            this.Log(result == 0 ? MessageLevel.Debug : MessageLevel.Error, "Docker exited with code " + result);
             if (result != 0)
+            {
+                this.LogError("Docker exited with code " + result);
                 return;
+            }
+
+            if (!string.IsNullOrEmpty(this.NewContainerSource))
+            {
+                await this.PushAsync(context, newContainerId);
+            }
 
             if (this.AttachToBuild)
-                await this.AttachToBuildAsync(context, this.NewRepositoryName, this.NewTag, this.NewContainerSource);
+                await this.AttachToBuildAsync(context, newContainerId);
 
             if (this.DeactivateOriginalTag)
-                await this.DeactivateAttachedAsync(context, this.RepositoryName, this.OriginalTag, this.ContainerSource);
+                await this.DeactivateAttachedAsync(context, oldContainerId);
         }
 
         protected override ExtendedRichDescription GetDescription(IOperationConfiguration config)
         {
             return new ExtendedRichDescription(
                 new RichDescription(
-                    "Retag ",
+                    "Tag ",
                     new Hilite(config[nameof(RepositoryName)] + ":" + config[nameof(OriginalTag)]),
-                    " to ",
+                    " as ",
                      new Hilite(AH.CoalesceString(config[nameof(RepositoryName)], config[nameof(NewRepositoryName)]) + ":" + config[nameof(NewTag)])
                 )
             );

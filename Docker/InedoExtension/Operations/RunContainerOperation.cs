@@ -9,15 +9,23 @@ using Inedo.Diagnostics;
 using Inedo.Documentation;
 using Inedo.Extensibility;
 using Inedo.Extensibility.Operations;
+using Inedo.Extensions.Docker.SuggestionProviders;
+using Inedo.Web;
 
 namespace Inedo.Extensions.Docker.Operations
 {
     [ScriptAlias("Run-Container")]
     [ScriptNamespace("Docker")]
     [DisplayName("Run Docker Container")]
-    [Description("Runs a Docker container.")]
+    [Description("Runs a Docker container on a container host server using a container configuration file.")]
     public sealed class RunContainerOperation : DockerOperation
     {
+        [Required]
+        [Category("Source")]
+        [ScriptAlias("Source")]
+        [DisplayName("Container source")]
+        [SuggestableValue(typeof(ContainerSourceSuggestionProvider))]
+        public string ContainerSource { get; set; }
         [Required]
         [ScriptAlias("Repository")]
         [DisplayName("Repository name")]
@@ -26,12 +34,14 @@ namespace Inedo.Extensions.Docker.Operations
         [ScriptAlias("Tag")]
         public string Tag { get; set; }
         [Required]
-        [DisplayName("Configuration file name")]
+        [DisplayName("Container Configuration")]
         [ScriptAlias("ConfigFileName")]
+        [SuggestableValue(typeof(ConfigurationSuggestionProvider))]
         public string ConfigFileName { get; set; }
         [Required]
-        [DisplayName("Instance")]
-        [ScriptAlias("Instance")]
+        [DisplayName("Container Runtime")]
+        [ScriptAlias("ConfigFileInstanceName")]
+        [SuggestableValue(typeof(ConfigurationInstanceSuggestionProvider))]
         public string ConfigInstanceName { get; set; }
         [DisplayName("Container name")]
         [ScriptAlias("Container")]
@@ -45,6 +55,10 @@ namespace Inedo.Extensions.Docker.Operations
 
         public override async Task ExecuteAsync(IOperationExecutionContext context)
         {
+            var containerId = new ContainerId(this.ContainerSource, this.RepositoryName, this.Tag);
+            if (!string.IsNullOrEmpty(this.ContainerSource))
+                containerId = await this.PullAsync(context, containerId);
+
             var containerConfigArgs = await this.GetContainerConfigText(context);
             if (containerConfigArgs == null)
                 return;
@@ -54,13 +68,13 @@ namespace Inedo.Extensions.Docker.Operations
             args.Append(' ');
             if (this.RunInBackground)
                 args.Append("-d ");
+            else if (string.IsNullOrWhiteSpace(this.ContainerName))
+                args.Append("--rm ");
 
             if (!string.IsNullOrWhiteSpace(this.ContainerName))
                 args.Append($"--name {this.ContainerName} ");
 
-            args.Append(this.RepositoryName);
-            args.Append(':');
-            args.Append(this.Tag);
+            args.Append(containerId.FullName);
 
             var argsText = args.ToString();
             this.LogDebug($"Executing docker {argsText}...");

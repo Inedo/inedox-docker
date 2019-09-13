@@ -69,12 +69,14 @@
     <Compile Include="Operations\Compose\DockerComposeDownOperation.cs" />
     <Compile Include="Operations\Compose\DockerComposeUpOperation.cs" />
     <Compile Include="Operations\DockerOperation.cs" />
-    <Compile Include="Operations\PushImageOperation.cs" />
     <Compile Include="Operations\RunContainerOperation.cs" />
     <Compile Include="Operations\StopContainerOperation.cs" />
     <Compile Include="Operations\TagImageOperation.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="SuggestionProviders\ConfigurationInstanceSuggestionProvider.cs" />
+    <Compile Include="SuggestionProviders\ConfigurationSuggestionProvider.cs" />
     <Compile Include="SuggestionProviders\ContainerSourceSuggestionProvider.cs" />
+    <Compile Include="SuggestionProviders\TextTemplateSuggestionProvider.cs" />
     <Compile Include="Utils.cs" />
     <Compile Include="VariableFunctions\DockerExePathVariableFunction.cs" />
   </ItemGroup>

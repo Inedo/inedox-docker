@@ -12,16 +12,17 @@ namespace Inedo.Extensions.Docker.Operations
     [ScriptAlias("Stop-Container")]
     [ScriptNamespace("Docker")]
     [DisplayName("Stop or Delete Docker Container")]
-    [Description("Stops a Docker container.")]
+    [Description("Stops a running Docker Container on a container host server.")]
     public sealed class StopContainerOperation : DockerOperation
     {
         [Required]
         [ScriptAlias("Container")]
         [DisplayName("Container name")]
         public string ContainerName { get; set; }
-        [ScriptAlias("Delete")]
-        [DisplayName("Delete container")]
-        public bool Delete { get; set; }
+        [ScriptAlias("Remove")]
+        [DisplayName("Remove after stop")]
+        [DefaultValue(true)]
+        public bool Remove { get; set; } = true;
 
         public override async Task ExecuteAsync(IOperationExecutionContext context)
         {
@@ -38,7 +39,7 @@ namespace Inedo.Extensions.Docker.Operations
 
             this.Log(result == 0 ? MessageLevel.Debug : MessageLevel.Error, "Docker exited with code " + result);
 
-            if (this.Delete)
+            if (this.Remove)
             {
                 result = await this.ExecuteCommandLineAsync(
                     context,
@@ -61,7 +62,7 @@ namespace Inedo.Extensions.Docker.Operations
                 " container"
             );
 
-            if (string.Equals(config[nameof(Delete)], "true", StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(config[nameof(Remove)], "true", StringComparison.OrdinalIgnoreCase))
                 return new ExtendedRichDescription(desc, new RichDescription("and delete container"));
             else
                 return new ExtendedRichDescription(desc);

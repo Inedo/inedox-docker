@@ -62,22 +62,77 @@ namespace Inedo.Extensions.Docker.Operations
                 return null;
         }
 
-        protected async Task AttachToBuildAsync(IOperationExecutionContext context, string name, string tag, string source = null)
+        public struct ContainerId
         {
-            var digest = await this.ExecuteGetDigest(context, $"{name}:{tag}");
-            this.LogDebug("Image digest: " + digest);
+            public string Source { get; }
+            public string Name { get; }
+            public string Tag { get; }
+            public string Digest { get; }
 
-            var containerManager = await context.TryGetServiceAsync<IContainerManager>();
-            await containerManager.AttachContainerToBuildAsync(
-                new AttachedContainer(name, tag, digest, source),
-                context.CancellationToken
-            );
+            public ContainerId(string source, string name, string tag, string digest = null)
+            {
+                this.Source = source;
+                this.Name = name ?? throw new ArgumentNullException(nameof(name));
+                this.Tag = tag ?? throw new ArgumentNullException(nameof(name));
+                this.Digest = digest;
+            }
+
+            public string FullName => GetContainerSourceServerName(this.Source) + this.Name + ":" + this.Tag;
+            public string FullerName => this.FullName + AH.ConcatNE("@", this.Digest);
+
+            public static implicit operator AttachedContainer(ContainerId containerId)
+                => new AttachedContainer(containerId.Name, containerId.Tag, containerId.Digest, containerId.Source);
+
+            public ContainerId WithDigest(string digest) => new ContainerId(this.Source, this.Name, this.Tag, digest);
         }
-        protected async Task DeactivateAttachedAsync(IOperationExecutionContext context, string name, string tag, string source = null)
+
+        protected async Task AttachToBuildAsync(IOperationExecutionContext context, ContainerId containerId)
         {
             var containerManager = await context.TryGetServiceAsync<IContainerManager>();
-            await containerManager.DeactivateContainerAsync(name, tag, source);
+            await containerManager.AttachContainerToBuildAsync(containerId, context.CancellationToken);
         }
+        protected async Task DeactivateAttachedAsync(IOperationExecutionContext context, ContainerId containerId)
+        {
+            var containerManager = await context.TryGetServiceAsync<IContainerManager>();
+            await containerManager.DeactivateContainerAsync(containerId.Name, containerId.Tag, containerId.Source);
+        }
+
+        protected async Task PushAsync(IOperationExecutionContext context, ContainerId containerId)
+        {
+            if (string.IsNullOrEmpty(containerId.Source))
+                throw new InvalidOperationException("cannot push a container with no associated source");
+
+            var exitCode = await this.ExecuteCommandLineAsync(context, new RemoteProcessStartInfo
+            {
+                FileName = this.DockerExePath,
+                Arguments = "push " + containerId.FullName,
+                WorkingDirectory = context.WorkingDirectory
+            });
+
+            if (exitCode != 0)
+                throw new ExecutionFailureException($"docker push returned code {exitCode}");
+        }
+
+        protected async Task<ContainerId> PullAsync(IOperationExecutionContext context, ContainerId containerId)
+        {
+            if (string.IsNullOrEmpty(containerId.Source))
+                throw new InvalidOperationException("cannot pull a container with no associated source");
+
+            var exitCode = await this.ExecuteCommandLineAsync(context, new RemoteProcessStartInfo
+            {
+                FileName = this.DockerExePath,
+                Arguments = "pull " + containerId.FullerName,
+                WorkingDirectory = context.WorkingDirectory
+            });
+
+            if (exitCode != 0)
+                throw new ExecutionFailureException($"docker pull returned code {exitCode}");
+
+            var digest = await this.ExecuteGetDigest(context, containerId.FullName);
+            return containerId.WithDigest(digest);
+        }
+
+        protected override void LogProcessError(string text) => this.LogDebug(text);
 
         protected sealed class ProcessOutput
         {

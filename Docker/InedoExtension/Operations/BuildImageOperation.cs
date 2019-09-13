@@ -2,13 +2,11 @@
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
-using System.Linq;
 using System.Threading.Tasks;
 using Inedo.Agents;
 using Inedo.Diagnostics;
 using Inedo.Documentation;
 using Inedo.ExecutionEngine;
-using Inedo.ExecutionEngine.Executer;
 using Inedo.Extensibility;
 using Inedo.Extensibility.Operations;
 using Inedo.Extensibility.RaftRepositories;
@@ -21,17 +19,21 @@ namespace Inedo.Extensions.Docker.Operations
     [ScriptAlias("Build-Image")]
     [ScriptNamespace("Docker")]
     [DisplayName("Build Docker Image")]
-    [Description("Builds a Docker image.")]
+    [Description("Builds a Docker image using a text template and pushes it to a specified container source.")]
     public sealed class BuildImageOperation : DockerOperation
     {
+        [Required]
         [ScriptAlias("DockerfileAsset")]
         [DisplayName("Dockerfile text template")]
+        [PlaceholderText("Select text template...")]
+        [SuggestableValue(typeof(TextTemplateSuggestionProvider))]
         public string DockerfileTemplate { get; set; }
         [ScriptAlias("TemplateArguments")]
         [DisplayName("Addtional template arguments")]
         [FieldEditMode(FieldEditMode.Multiline)]
         [PlaceholderText("eg. %(name: value, ...)")]
         public IDictionary<string, RuntimeValue> TemplateArguments { get; set; }
+        [Required]
         [ScriptAlias("Source")]
         [DisplayName("Container Source")]
         [SuggestableValue(typeof(ContainerSourceSuggestionProvider))]
@@ -51,6 +53,7 @@ namespace Inedo.Extensions.Docker.Operations
         public string Tag { get; set; }
         [ScriptAlias("AdditionalArguments")]
         [DisplayName("Addtional arguments")]
+        [Description("Additional arguments for the docker CLI build command, such as --build-arg=ARG_NAME=value")]
         public string AdditionalArguments { get; set; }
         [ScriptAlias("AttachToBuild")]
         [DisplayName("Attach to build")]
@@ -59,6 +62,7 @@ namespace Inedo.Extensions.Docker.Operations
 
         public override async Task ExecuteAsync(IOperationExecutionContext context)
         {
+            var procExec = await context.Agent.GetServiceAsync<IRemoteProcessExecuter>();
             var fileOps = await context.Agent.GetServiceAsync<IFileOperationsExecuter>();
             var sourcePath = context.ResolvePath(this.SourceDirectory);
             await fileOps.CreateDirectoryAsync(sourcePath);
@@ -91,38 +95,49 @@ namespace Inedo.Extensions.Docker.Operations
                 await fileOps.WriteAllTextAsync(dockerfilePath, dockerfileText, InedoLib.UTF8Encoding);
             }
 
-            var repositoryName = GetContainerSourceServerName(this.ContainerSource) + this.RepositoryName;
+            var containerId = new ContainerId(this.ContainerSource, this.RepositoryName, this.Tag);
 
-            var args = $"build --force-rm --progress=plain --tag={repositoryName}:{this.Tag} {this.AdditionalArguments} .";
+            var args = $"build --force-rm --progress=plain --tag={containerId.FullName} {this.AdditionalArguments} .";
             this.LogDebug("Executing docker " + args);
 
-            var exitCode = await this.ExecuteCommandLineAsync(
-                context,
-                new RemoteProcessStartInfo
-                {
-                    FileName = this.DockerExePath,
-                    Arguments = args,
-                    WorkingDirectory = sourcePath,
-                    EnvironmentVariables =
-                    {
-                        ["DOCKER_BUILDKIT"] = "1"
-                    }
-                }
-            );
-            if (exitCode != 0)
+            using (var process = procExec.CreateProcess(new RemoteProcessStartInfo
             {
-                this.LogError($"exit code: {exitCode}");
-                return;
+                FileName = this.DockerExePath,
+                Arguments = args,
+                WorkingDirectory = sourcePath,
+                EnvironmentVariables =
+                {
+                    ["DOCKER_BUILDKIT"] = "1"
+                }
+            }))
+            {
+                process.OutputDataReceived += (s, e) => this.LogInformation(e.Data);
+                process.ErrorDataReceived += (s, e) => this.LogBuildError(e.Data);
+
+                process.Start();
+                await process.WaitAsync(context.CancellationToken);
+
+                if (process.ExitCode != 0)
+                {
+                    this.LogError($"exit code: {process.ExitCode ?? -1}");
+                    return;
+                }
             }
 
+            var digest = await this.ExecuteGetDigest(context, containerId.FullName);
+            containerId = containerId.WithDigest(digest);
+
+            if (!string.IsNullOrEmpty(this.ContainerSource))
+                await this.PushAsync(context, containerId);
+
             if (this.AttachToBuild)
-                await this.AttachToBuildAsync(context, this.RepositoryName, this.Tag, this.ContainerSource);
+                await this.AttachToBuildAsync(context, containerId);
         }
 
         private readonly Dictionary<int, object> LogScopes = new Dictionary<int, object>();
         private MessageLevel LastLogLevel = MessageLevel.Error;
 
-        protected override void LogProcessError(string text)
+        private void LogBuildError(string text)
         {
             if (text.StartsWith("#") && text.Contains(" ") && int.TryParse(text.Substring(1, text.IndexOf(' ') - 1), out var scopeNum))
             {
