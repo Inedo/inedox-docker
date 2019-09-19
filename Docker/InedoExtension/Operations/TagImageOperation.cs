@@ -81,12 +81,14 @@ namespace Inedo.Extensions.Docker.Operations
 
             newContainerId = newContainerId.WithDigest(oldContainerId.Digest);
 
+            var escapeArg = GetEscapeArg(context);
+
             int result = await this.ExecuteCommandLineAsync(
                 context,
                 new RemoteProcessStartInfo
                 {
                     FileName = this.DockerExePath,
-                    Arguments = $"tag {oldContainerId.FullName} {newContainerId.FullName}"
+                    Arguments = $"tag {escapeArg(oldContainerId.FullName)} {escapeArg(newContainerId.FullName)}"
                 }
             );
             if (result != 0)

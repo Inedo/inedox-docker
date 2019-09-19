@@ -8,6 +8,7 @@ using Inedo.Diagnostics;
 using Inedo.Documentation;
 using Inedo.ExecutionEngine.Executer;
 using Inedo.Extensibility;
+using Inedo.Extensibility.Credentials;
 using Inedo.Extensibility.Operations;
 
 namespace Inedo.Extensions.Docker.Operations
@@ -24,6 +25,16 @@ namespace Inedo.Extensions.Docker.Operations
         [ScriptAlias("DockerExePath")]
         [DefaultValue("$DockerExePath")]
         public string DockerExePath { get; set; }
+
+        protected static Func<string, string> GetEscapeArg(IOperationExecutionContext context)
+        {
+            if (context.Agent.TryGetService<ILinuxFileOperationsExecuter>() == null)
+            {
+                return Utils.EscapeWindowsArg;
+            }
+
+            return Utils.EscapeLinuxArg;
+        }
 
         protected async Task<ProcessOutput> ExecuteDockerAsync(IOperationExecutionContext context, string command, string arguments, string workingDirectory)
         {
@@ -55,7 +66,8 @@ namespace Inedo.Extensions.Docker.Operations
 
         protected async Task<string> ExecuteGetDigest(IOperationExecutionContext context, string tag)
         {
-            var result = await this.ExecuteDockerAsync(context, "inspect", "--format='{{.Id}}' " + tag, null);
+            var escapeArg = GetEscapeArg(context);
+            var result = await this.ExecuteDockerAsync(context, "inspect", "--format='{{.Id}}' " + escapeArg(tag), null);
             if (result.ExitCode == 0 && result.Output.Count == 1)
                 return result.Output[0].Trim();
             else
@@ -97,15 +109,61 @@ namespace Inedo.Extensions.Docker.Operations
             await containerManager.DeactivateContainerAsync(containerId.Name, containerId.Tag, containerId.Source);
         }
 
+        protected async Task LoginAsync(IOperationExecutionContext context, string containerSource)
+        {
+            if (string.IsNullOrEmpty(containerSource))
+                return;
+
+            var source = SDK.GetContainerSources().FirstOrDefault(cs => string.Equals(cs.Name, containerSource, StringComparison.OrdinalIgnoreCase));
+            if (source == null)
+                throw new InvalidOperationException("cannot find a container source named '" + containerSource + "'");
+
+            if (string.IsNullOrEmpty(source.CredentialName))
+                return;
+
+            var escapeArg = GetEscapeArg(context);
+
+            var credentials = (UsernamePasswordCredentials)ResourceCredentials.Create("UsernamePassword", source.CredentialName,
+                (context as IStandardContext)?.EnvironmentId, (context as IStandardContext)?.ProjectId, true);
+
+            var output = await this.ExecuteDockerAsync(context, "login", $"{escapeArg(GetServerName(source.RegistryUrl))} -u {escapeArg(credentials.UserName)} -p {escapeArg(AH.Unprotect(credentials.Password))}", null);
+            if (output.ExitCode == 0)
+                return;
+
+            throw new ExecutionFailureException($"docker login returned code {output.ExitCode}:\n{string.Join("\n", output.Error)}");
+        }
+        protected async Task LogoutAsync(IOperationExecutionContext context, string containerSource)
+        {
+            if (string.IsNullOrEmpty(containerSource))
+                return;
+
+            var source = SDK.GetContainerSources().FirstOrDefault(cs => string.Equals(cs.Name, containerSource, StringComparison.OrdinalIgnoreCase));
+            if (source == null)
+                throw new InvalidOperationException("cannot find a container source named '" + containerSource + "'");
+
+            if (string.IsNullOrEmpty(source.CredentialName))
+                return;
+
+            var escapeArg = GetEscapeArg(context);
+
+            var output = await this.ExecuteDockerAsync(context, "logout", $"{escapeArg(GetServerName(source.RegistryUrl))}", null);
+            if (output.ExitCode == 0)
+                return;
+
+            throw new ExecutionFailureException($"docker logout returned code {output.ExitCode}:\n{string.Join("\n", output.Error)}");
+        }
+
         protected async Task PushAsync(IOperationExecutionContext context, ContainerId containerId)
         {
             if (string.IsNullOrEmpty(containerId.Source))
                 throw new InvalidOperationException("cannot push a container with no associated source");
 
+            var escapeArg = GetEscapeArg(context);
+
             var exitCode = await this.ExecuteCommandLineAsync(context, new RemoteProcessStartInfo
             {
                 FileName = this.DockerExePath,
-                Arguments = "push " + containerId.FullName,
+                Arguments = "push " + escapeArg(containerId.FullName),
                 WorkingDirectory = context.WorkingDirectory
             });
 
@@ -118,10 +176,12 @@ namespace Inedo.Extensions.Docker.Operations
             if (string.IsNullOrEmpty(containerId.Source))
                 throw new InvalidOperationException("cannot pull a container with no associated source");
 
+            var escapeArg = GetEscapeArg(context);
+
             var exitCode = await this.ExecuteCommandLineAsync(context, new RemoteProcessStartInfo
             {
                 FileName = this.DockerExePath,
-                Arguments = "pull " + containerId.FullerName,
+                Arguments = "pull " + escapeArg(containerId.FullerName),
                 WorkingDirectory = context.WorkingDirectory
             });
 

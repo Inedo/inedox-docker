@@ -28,12 +28,14 @@ namespace Inedo.Extensions.Docker.Operations
         {
             this.LogDebug($"Executing docker stop {this.ContainerName}...");
 
+            var escapeArg = GetEscapeArg(context);
+
             int result = await this.ExecuteCommandLineAsync(
                 context,
                 new RemoteProcessStartInfo
                 {
                     FileName = this.DockerExePath,
-                    Arguments = "stop " + this.ContainerName
+                    Arguments = "stop " + escapeArg(this.ContainerName)
                 }
             );
 
@@ -46,7 +48,7 @@ namespace Inedo.Extensions.Docker.Operations
                     new RemoteProcessStartInfo
                     {
                         FileName = this.DockerExePath,
-                        Arguments = "rm " + this.ContainerName
+                        Arguments = "rm " + escapeArg(this.ContainerName)
                     }
                 );
 

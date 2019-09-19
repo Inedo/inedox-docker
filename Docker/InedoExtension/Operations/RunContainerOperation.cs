@@ -63,6 +63,8 @@ namespace Inedo.Extensions.Docker.Operations
             if (containerConfigArgs == null)
                 return;
 
+            var escapeArg = GetEscapeArg(context);
+
             var args = new StringBuilder("run ");
             args.Append(containerConfigArgs);
             args.Append(' ');
@@ -72,9 +74,9 @@ namespace Inedo.Extensions.Docker.Operations
                 args.Append("--rm ");
 
             if (!string.IsNullOrWhiteSpace(this.ContainerName))
-                args.Append($"--name {this.ContainerName} ");
+                args.Append($"--name {escapeArg(this.ContainerName)} ");
 
-            args.Append(containerId.FullName);
+            args.Append(escapeArg(containerId.FullName));
 
             var argsText = args.ToString();
             this.LogDebug($"Executing docker {argsText}...");

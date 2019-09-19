@@ -96,8 +96,9 @@ namespace Inedo.Extensions.Docker.Operations
             }
 
             var containerId = new ContainerId(this.ContainerSource, this.RepositoryName, this.Tag);
+            var escapeArg = GetEscapeArg(context);
 
-            var args = $"build --force-rm --progress=plain --tag={containerId.FullName} {this.AdditionalArguments} .";
+            var args = $"build --force-rm --progress=plain --tag={escapeArg(containerId.FullName)} {this.AdditionalArguments} .";
             this.LogDebug("Executing docker " + args);
 
             using (var process = procExec.CreateProcess(new RemoteProcessStartInfo
