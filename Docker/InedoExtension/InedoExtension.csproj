@@ -61,6 +61,7 @@
     <Reference Include="Microsoft.CSharp" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Operations\AssembleImageOperation.cs" />
     <Compile Include="Operations\BuildImageOperation.cs" />
     <Compile Include="Operations\Compose\ComposeOperationBase.cs" />
     <Compile Include="Operations\Compose\ComposeServicesOperationBase.cs" />
