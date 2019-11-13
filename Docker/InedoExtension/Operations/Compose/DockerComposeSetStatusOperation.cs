@@ -4,7 +4,6 @@ using System.Threading.Tasks;
 using Inedo.Documentation;
 using Inedo.Extensibility;
 using Inedo.Extensibility.Operations;
-using Inedo.Extensions.Docker.SuggestionProviders;
 using Inedo.Web;
 
 namespace Inedo.Extensions.Docker.Operations.Compose
@@ -47,7 +46,7 @@ namespace Inedo.Extensions.Docker.Operations.Compose
         [ScriptAlias("Signal")]
         [Description("Used for the ForceStop action.")]
         [DefaultValue("SIGKILL")]
-        [SuggestableValue(typeof(SignalSuggestionProvider))]
+        [SuggestableValue("SIGKILL", "SIGTERM", "SIGINT", "SIGHUP", "SIGQUIT")]
         public string Signal { get; set; } = "SIGKILL";
 
         public override Task ExecuteAsync(IOperationExecutionContext context)
