@@ -49,7 +49,14 @@ namespace Inedo.Extensions.Docker.Operations
 
                 process.Start();
 
-                await process.WaitAsync(context.CancellationToken);
+                try
+                {
+                    await process.WaitAsync(context.CancellationToken);
+                }
+                catch (Win32Exception ex) when (ex.ErrorCode == unchecked((int)0x80004005u) /* E_FAIL */ && ex.NativeErrorCode == 2 /* ERROR_FILE_NOT_FOUND */)
+                {
+                    throw new ExecutionFailureException($"Could not find the docker executable at '{this.DockerExePath}'. Define the correct path on this operation or as a variable on this server.");
+                }
 
                 return new ProcessOutput(process.ExitCode.Value, output, error);
             }
