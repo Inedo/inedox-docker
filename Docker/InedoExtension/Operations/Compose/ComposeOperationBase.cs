@@ -50,7 +50,6 @@ namespace Inedo.Extensions.Docker.Operations.Compose
         {
             var fileOps = await context.Agent.TryGetServiceAsync<ILinuxFileOperationsExecuter>() ?? await context.Agent.GetServiceAsync<IFileOperationsExecuter>();
             var procExec = await context.Agent.GetServiceAsync<IRemoteProcessExecuter>();
-            var escapeArg = fileOps is ILinuxFileOperationsExecuter ? (Func<string, string>)Utils.EscapeLinuxArg : Utils.EscapeWindowsArg;
 
             var baseDir = await fileOps.GetBaseWorkingDirectoryAsync();
             await fileOps.CreateDirectoryAsync(fileOps.CombinePath(baseDir, "scripts"));
@@ -58,22 +57,22 @@ namespace Inedo.Extensions.Docker.Operations.Compose
             var startInfo = new RemoteProcessStartInfo
             {
                 FileName = "docker-compose",
-                Arguments = string.Join(" ", new[]
-                {
-                    "--file",
-                    composeFileName,
-                    "--project-name",
-                    this.ProjectName,
-                    this.Verbose ? "--verbose" : null,
-                    "--no-ansi",
-                    this.Command
-                }
-                .Concat(this.AddArgs ?? new string[0])
-                .Concat(args ?? new string[0])
-                .Where(arg => arg != null)
-                .Select(escapeArg)),
                 WorkingDirectory = context.WorkingDirectory
             };
+
+            startInfo.AppendArgs(procExec, new[]
+            {
+                "--file",
+                composeFileName,
+                "--project-name",
+                this.ProjectName,
+                this.Verbose ? "--verbose" : null,
+                "--no-ansi",
+                this.Command
+            }
+            .Concat(this.AddArgs ?? new string[0])
+            .Concat(args ?? new string[0])
+            .Where(arg => arg != null));
 
             try
             {
@@ -81,7 +80,7 @@ namespace Inedo.Extensions.Docker.Operations.Compose
 
                 this.LogDebug($"Working directory: {startInfo.WorkingDirectory}");
                 await fileOps.CreateDirectoryAsync(startInfo.WorkingDirectory);
-                this.LogDebug($"Running command: {escapeArg(startInfo.FileName)} {startInfo.Arguments}");
+                this.LogDebug($"Running command: {startInfo.FileName} {startInfo.Arguments}");
 
                 int? exitCode;
                 using (var process = procExec.CreateProcess(startInfo))
@@ -110,7 +109,7 @@ namespace Inedo.Extensions.Docker.Operations.Compose
             var verifyInstalledStartInfo = new RemoteProcessStartInfo
             {
                 FileName = fileOps is ILinuxFileOperationsExecuter ? "/usr/bin/which" : "System32\\where.exe",
-                Arguments = escapeArg(startInfo.FileName),
+                Arguments = procExec.EscapeArg(startInfo.FileName),
                 WorkingDirectory = context.WorkingDirectory
             };
 

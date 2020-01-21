@@ -74,7 +74,6 @@
     <Compile Include="SuggestionProviders\ConfigurationSuggestionProvider.cs" />
     <Compile Include="SuggestionProviders\ContainerSourceSuggestionProvider.cs" />
     <Compile Include="SuggestionProviders\TextTemplateSuggestionProvider.cs" />
-    <Compile Include="Utils.cs" />
     <Compile Include="VariableFunctions\DockerExePathVariableFunction.cs" />
   </ItemGroup>
   <ItemGroup>

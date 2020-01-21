@@ -32,12 +32,8 @@ namespace Inedo.Extensions.Docker.Operations
 
         protected static Func<string, string> GetEscapeArg(IOperationExecutionContext context)
         {
-            if (context.Agent.TryGetService<ILinuxFileOperationsExecuter>() == null)
-            {
-                return Utils.EscapeWindowsArg;
-            }
-
-            return Utils.EscapeLinuxArg;
+            var procExec = context.Agent.GetService<IRemoteProcessExecuter>();
+            return procExec.EscapeArg;
         }
 
         protected async Task<ProcessOutput> ExecuteDockerAsync(IOperationExecutionContext context, string command, string arguments, string workingDirectory)
