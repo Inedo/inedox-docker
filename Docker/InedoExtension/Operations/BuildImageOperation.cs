@@ -71,22 +71,24 @@ namespace Inedo.Extensions.Docker.Operations
             {
                 string templateText;
 
-                using (var raft = await context.OpenRaftAsync(null, OpenRaftOptions.ReadOnly | OpenRaftOptions.OptimizeLoadTime))
-                {
-                    using (var stream = await raft.OpenRaftItemAsync(RaftItemType.TextTemplate, this.DockerfileTemplate, FileMode.Open, FileAccess.Read))
-                    {
-                        if (stream == null)
-                        {
-                            this.LogError($"Text template \"{this.DockerfileTemplate}\" not found.");
-                            return;
-                        }
+#warning Implement Raft2 for BuildImageOperation
+                templateText = null;
+                //using (var raft = await context.OpenRaftAsync(null, OpenRaftOptions.ReadOnly | OpenRaftOptions.OptimizeLoadTime))
+                //{
+                //    using (var stream = await raft.OpenRaftItemAsync(RaftItemType.TextTemplate, this.DockerfileTemplate, FileMode.Open, FileAccess.Read))
+                //    {
+                //        if (stream == null)
+                //        {
+                //            this.LogError($"Text template \"{this.DockerfileTemplate}\" not found.");
+                //            return;
+                //        }
 
-                        using (var reader = new StreamReader(stream, InedoLib.UTF8Encoding))
-                        {
-                            templateText = await reader.ReadToEndAsync();
-                        }
-                    }
-                }
+                //        using (var reader = new StreamReader(stream, InedoLib.UTF8Encoding))
+                //        {
+                //            templateText = await reader.ReadToEndAsync();
+                //        }
+                //    }
+                //}
 
                 var dockerfileText = await context.ApplyTextTemplateAsync(templateText, this.TemplateArguments != null ? new Dictionary<string, RuntimeValue>(this.TemplateArguments) : null);
 

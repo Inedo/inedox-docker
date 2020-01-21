@@ -10,7 +10,7 @@ namespace Inedo.Extensions.Docker.SuggestionProviders
     {
         public Task<IEnumerable<string>> GetSuggestionsAsync(IComponentConfiguration config)
         {
-            return Task.FromResult(SDK.GetContainerSources().Select(source => source.Name));
+            return Task.FromResult(SDK.GetContainerSources().Select(source => source.ResourceInfo.Name));
         }
     }
 }

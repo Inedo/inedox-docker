@@ -10,6 +10,10 @@ using Inedo.ExecutionEngine.Executer;
 using Inedo.Extensibility;
 using Inedo.Extensibility.Credentials;
 using Inedo.Extensibility.Operations;
+using Inedo.Extensibility.SecureResources;
+using Inedo.Extensions.Credentials;
+using Inedo.Extensions.SecureResources;
+using UsernamePasswordCredentials = Inedo.Extensions.Credentials.UsernamePasswordCredentials;
 
 namespace Inedo.Extensions.Docker.Operations
 {
@@ -89,7 +93,7 @@ namespace Inedo.Extensions.Docker.Operations
                 this.Digest = digest;
             }
 
-            public string FullName => GetContainerSourceServerName(this.Source) + this.Name + ":" + this.Tag;
+            public string FullName => this.Source + "::" + this.Name + ":" + this.Tag;
             public string FullerName => this.FullName + AH.ConcatNE("@", this.Digest);
 
             public static implicit operator AttachedContainer(ContainerId containerId)
@@ -114,19 +118,19 @@ namespace Inedo.Extensions.Docker.Operations
             if (string.IsNullOrEmpty(containerSource))
                 return;
 
-            var source = SDK.GetContainerSources().FirstOrDefault(cs => string.Equals(cs.Name, containerSource, StringComparison.OrdinalIgnoreCase));
-            if (source == null)
-                throw new InvalidOperationException("cannot find a container source named '" + containerSource + "'");
-
-            if (string.IsNullOrEmpty(source.CredentialName))
+            var source = (ContainerSource)SecureResource.Create(containerSource, (IResourceResolutionContext)context);
+            var creds = source.GetCredentials((ICredentialResolutionContext)context);
+            if (creds == null)
+            {
+                this.LogWarning("Credentials are required to Login.");
                 return;
+            }
+            var userpass = source.GetCredentials((ICredentialResolutionContext)context) as UsernamePasswordCredentials;
+            if (userpass == null)
+                userpass = new UsernamePasswordCredentials { UserName = "api", Password = ((TokenCredentials)creds).Token };
 
             var escapeArg = GetEscapeArg(context);
-
-            var credentials = (UsernamePasswordCredentials)ResourceCredentials.Create("UsernamePassword", source.CredentialName,
-                (context as IStandardContext)?.EnvironmentId, (context as IStandardContext)?.ProjectId, true);
-
-            var output = await this.ExecuteDockerAsync(context, "login", $"{escapeArg(GetServerName(source.RegistryUrl))} -u {escapeArg(credentials.UserName)} -p {escapeArg(AH.Unprotect(credentials.Password))}", null);
+            var output = await this.ExecuteDockerAsync(context, "login", $"{escapeArg(source.RegistryPrefix)} -u {escapeArg(userpass.UserName)} -p {escapeArg(AH.Unprotect(userpass.Password))}", null);
             if (output.ExitCode == 0)
                 return;
 
@@ -136,17 +140,19 @@ namespace Inedo.Extensions.Docker.Operations
         {
             if (string.IsNullOrEmpty(containerSource))
                 return;
-
-            var source = SDK.GetContainerSources().FirstOrDefault(cs => string.Equals(cs.Name, containerSource, StringComparison.OrdinalIgnoreCase));
-            if (source == null)
-                throw new InvalidOperationException("cannot find a container source named '" + containerSource + "'");
-
-            if (string.IsNullOrEmpty(source.CredentialName))
+            var source = (ContainerSource)SecureResource.Create(containerSource, (IResourceResolutionContext)context);
+            var creds = source.GetCredentials((ICredentialResolutionContext)context);
+            if (creds == null)
+            {
+                this.LogWarning("Credentials are required to Login.");
                 return;
+            }
+            var userpass = source.GetCredentials((ICredentialResolutionContext)context) as UsernamePasswordCredentials;
+            if (userpass == null)
+                userpass = new UsernamePasswordCredentials { UserName = "api", Password = ((TokenCredentials)creds).Token };
 
             var escapeArg = GetEscapeArg(context);
-
-            var output = await this.ExecuteDockerAsync(context, "logout", $"{escapeArg(GetServerName(source.RegistryUrl))}", null);
+            var output = await this.ExecuteDockerAsync(context, "logout", $"{escapeArg(source.RegistryPrefix)}", null);
             if (output.ExitCode == 0)
                 return;
 
@@ -206,30 +212,6 @@ namespace Inedo.Extensions.Docker.Operations
             public int ExitCode { get; }
             public List<string> Output { get; }
             public List<string> Error { get; }
-        }
-
-        protected static string GetContainerSourceServerName(string name)
-        {
-            if (string.IsNullOrEmpty(name))
-                return string.Empty;
-
-            var source = SDK.GetContainerSources()
-                .FirstOrDefault(s => string.Equals(s.Name, name, StringComparison.OrdinalIgnoreCase));
-
-            if (source == null)
-            {
-                throw new ExecutionFailureException($"Container source \"{name}\" not found.");
-            }
-
-            return GetServerName(source.RegistryUrl);
-        }
-
-        protected static string GetServerName(string url)
-        {
-            if (!Uri.TryCreate(url, UriKind.Absolute, out var uri))
-                throw new ExecutionFailureException("Invalid container registry URL: " + url);
-
-            return $"{uri.Host}:{uri.Port}{uri.AbsolutePath.TrimEnd('/')}/";
         }
     }
 }
