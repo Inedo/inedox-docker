@@ -64,6 +64,7 @@ namespace Inedo.Extensions.Docker.Operations
         {
             var procExec = await context.Agent.GetServiceAsync<IRemoteProcessExecuter>();
             var fileOps = await context.Agent.GetServiceAsync<IFileOperationsExecuter>();
+            await fileOps.CreateDirectoryAsync(context.WorkingDirectory);
             var sourcePath = context.ResolvePath(this.SourceDirectory);
             await fileOps.CreateDirectoryAsync(sourcePath);
 

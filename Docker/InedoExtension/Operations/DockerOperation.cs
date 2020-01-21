@@ -38,6 +38,9 @@ namespace Inedo.Extensions.Docker.Operations
 
         protected async Task<ProcessOutput> ExecuteDockerAsync(IOperationExecutionContext context, string command, string arguments, string workingDirectory)
         {
+            var fileOps = await context.Agent.GetServiceAsync<IFileOperationsExecuter>();
+            await fileOps.CreateDirectoryAsync(workingDirectory);
+
             var output = new List<string>();
             var error = new List<string>();
 
