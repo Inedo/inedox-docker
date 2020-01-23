@@ -77,6 +77,67 @@ namespace Inedo.Extensions.Docker.Operations
                 return null;
         }
 
+        private readonly Dictionary<int, IScopedLog> LogScopes = new Dictionary<int, IScopedLog>();
+        private IScopedLog LastLog = null;
+        private MessageLevel LastLogLevel = MessageLevel.Error;
+
+        protected void LogBuildError(IOperationExecutionContext context, string text)
+        {
+            if (text.StartsWith("#") && text.Contains(" ") && int.TryParse(text.Substring(1, text.IndexOf(' ') - 1), out var scopeNum))
+            {
+                var message = text.Substring(text.IndexOf(' ') + 1);
+                var firstWord = message.Substring(0, Math.Max(message.IndexOf(' '), 0));
+
+                bool finished = false;
+                MessageLevel level;
+                if (decimal.TryParse(firstWord, out var timeSpent))
+                {
+                    level = MessageLevel.Debug;
+                    message = message.Substring(message.IndexOf(' ') + 1).TrimEnd('\r');
+                    message = message.Substring(message.LastIndexOf('\r') + 1);
+                }
+                else if (firstWord == "DONE")
+                {
+                    level = MessageLevel.Information;
+                    finished = true;
+                }
+                else if (firstWord == "ERROR")
+                {
+                    level = MessageLevel.Error;
+                    finished = true;
+                }
+                else
+                {
+                    level = MessageLevel.Information;
+                }
+
+                if (this.LogScopes.TryGetValue(scopeNum, out var logScope))
+                {
+                    logScope.Log(level, message);
+                    this.LastLog = logScope;
+                }
+                else
+                {
+                    logScope = context.Log.CreateNestedLog($"{scopeNum}. {message}");
+                    this.LogScopes[scopeNum] = logScope;
+                    this.LastLog = logScope;
+                }
+
+                if (finished)
+                {
+                    this.LastLog.Dispose();
+                    this.LastLog = null;
+                }
+
+                this.LastLogLevel = level;
+            }
+            else
+            {
+                // a continuation of the previous non-build-process message
+                this.Log(this.LastLogLevel, text.TrimEnd('\r'));
+            }
+        }
+
         public struct ContainerId
         {
             public string Source { get; }
