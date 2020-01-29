@@ -62,6 +62,9 @@ namespace Inedo.Extensions.Docker.Operations
 
         public override async Task ExecuteAsync(IOperationExecutionContext context)
         {
+            var fileOps = await context.Agent.GetServiceAsync<IFileOperationsExecuter>();
+            await fileOps.CreateDirectoryAsync(context.WorkingDirectory);
+
             this.NewRepositoryName = AH.CoalesceString(this.NewRepositoryName, this.RepositoryName);
             if (string.IsNullOrWhiteSpace(this.NewContainerSource))
             {

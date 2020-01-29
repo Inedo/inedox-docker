@@ -8,7 +8,7 @@ using Inedo.Extensibility;
 [assembly: AssemblyProduct("any")]
 
 // Not for ProGet
-[assembly: AppliesTo(InedoProduct.BuildMaster | InedoProduct.Otter | InedoProduct.Hedgehog)]
+[assembly: AppliesTo(InedoProduct.BuildMaster | InedoProduct.Otter)]
 
 [assembly: ScriptNamespace("Docker")]
 

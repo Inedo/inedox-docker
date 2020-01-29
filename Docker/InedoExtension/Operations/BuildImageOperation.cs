@@ -64,31 +64,20 @@ namespace Inedo.Extensions.Docker.Operations
         {
             var procExec = await context.Agent.GetServiceAsync<IRemoteProcessExecuter>();
             var fileOps = await context.Agent.GetServiceAsync<IFileOperationsExecuter>();
+            await fileOps.CreateDirectoryAsync(context.WorkingDirectory);
             var sourcePath = context.ResolvePath(this.SourceDirectory);
             await fileOps.CreateDirectoryAsync(sourcePath);
 
             if (!string.IsNullOrWhiteSpace(this.DockerfileTemplate))
             {
-                string templateText;
-
-                using (var raft = await context.OpenRaftAsync(null, OpenRaftOptions.ReadOnly | OpenRaftOptions.OptimizeLoadTime))
+                var item = SDK.GetRaftItem(RaftItemType.TextTemplate, this.DockerfileTemplate, context);
+                if (item == null)
                 {
-                    using (var stream = await raft.OpenRaftItemAsync(RaftItemType.TextTemplate, this.DockerfileTemplate, FileMode.Open, FileAccess.Read))
-                    {
-                        if (stream == null)
-                        {
-                            this.LogError($"Text template \"{this.DockerfileTemplate}\" not found.");
-                            return;
-                        }
-
-                        using (var reader = new StreamReader(stream, InedoLib.UTF8Encoding))
-                        {
-                            templateText = await reader.ReadToEndAsync();
-                        }
-                    }
+                    this.LogError($"Text template \"{this.DockerfileTemplate}\" not found.");
+                    return;
                 }
 
-                var dockerfileText = await context.ApplyTextTemplateAsync(templateText, this.TemplateArguments != null ? new Dictionary<string, RuntimeValue>(this.TemplateArguments) : null);
+                var dockerfileText = await context.ApplyTextTemplateAsync(item.Content, this.TemplateArguments != null ? new Dictionary<string, RuntimeValue>(this.TemplateArguments) : null);
 
                 var dockerfilePath = fileOps.CombinePath(sourcePath, "Dockerfile");
 
@@ -113,7 +102,7 @@ namespace Inedo.Extensions.Docker.Operations
             }))
             {
                 process.OutputDataReceived += (s, e) => this.LogInformation(e.Data);
-                process.ErrorDataReceived += (s, e) => this.LogBuildError(e.Data);
+                process.ErrorDataReceived += (s, e) => this.LogBuildError(context, e.Data);
 
                 process.Start();
                 await process.WaitAsync(context.CancellationToken);
@@ -133,57 +122,6 @@ namespace Inedo.Extensions.Docker.Operations
 
             if (this.AttachToBuild)
                 await this.AttachToBuildAsync(context, containerId);
-        }
-
-        private readonly Dictionary<int, object> LogScopes = new Dictionary<int, object>();
-        private MessageLevel LastLogLevel = MessageLevel.Error;
-
-        private void LogBuildError(string text)
-        {
-            if (text.StartsWith("#") && text.Contains(" ") && int.TryParse(text.Substring(1, text.IndexOf(' ') - 1), out var scopeNum))
-            {
-                var message = text.Substring(text.IndexOf(' ') + 1);
-                var firstWord = message.Substring(0, Math.Max(message.IndexOf(' '), 0));
-
-                MessageLevel level;
-                if (decimal.TryParse(firstWord, out var timeSpent))
-                {
-                    level = MessageLevel.Debug;
-                    message = message.Substring(message.IndexOf(' ') + 1).TrimEnd('\r');
-                    message = message.Substring(message.LastIndexOf('\r') + 1);
-                    // TODO: log is from build process
-                }
-                else if (firstWord == "DONE")
-                {
-                    level = MessageLevel.Information;
-                }
-                else if (firstWord == "ERROR")
-                {
-                    level = MessageLevel.Error;
-                }
-                else
-                {
-                    level = MessageLevel.Information;
-                }
-
-                if (this.LogScopes.TryGetValue(scopeNum, out var logScope))
-                {
-                    // TODO: write to scoped log
-                    this.Log(level, message);
-                }
-                else
-                {
-                    // TODO: create scoped log
-                    this.Log(level, message);
-                }
-
-                this.LastLogLevel = level;
-            }
-            else
-            {
-                // a continuation of the previous non-build-process message
-                this.Log(this.LastLogLevel, text.TrimEnd('\r'));
-            }
         }
 
         protected override ExtendedRichDescription GetDescription(IOperationConfiguration config)
