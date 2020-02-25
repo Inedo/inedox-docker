@@ -86,4 +86,7 @@
     <None Include="packages.config" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <PropertyGroup>
+    <PostBuildEvent>powershell -Command "if ((Test-Path C:\LocalDev\Tools\inedoxpack\inedoxpack.exe) -And (Test-Path C:\LocalDev\BuildMaster\Extensions -PathType Container)) { C:\LocalDev\Tools\inedoxpack\inedoxpack.exe '$(TargetPath)' 'C:\LocalDev\BuildMaster\Extensions\$(TargetName).upack' 0.0.0 }"</PostBuildEvent>
+  </PropertyGroup>
 </Project>

@@ -9,7 +9,9 @@ using Inedo.Diagnostics;
 using Inedo.Documentation;
 using Inedo.Extensibility;
 using Inedo.Extensibility.Operations;
+using Inedo.Extensibility.SecureResources;
 using Inedo.Extensions.Docker.SuggestionProviders;
+using Inedo.Extensions.SecureResources;
 using Inedo.Web;
 
 namespace Inedo.Extensions.Docker.Operations
@@ -55,42 +57,51 @@ namespace Inedo.Extensions.Docker.Operations
 
         public override async Task ExecuteAsync(IOperationExecutionContext context)
         {
-            var containerId = new ContainerId(this.ContainerSource, this.RepositoryName, this.Tag);
-            if (!string.IsNullOrEmpty(this.ContainerSource))
-                containerId = await this.PullAsync(context, containerId);
+            await this.LoginAsync(context, this.ContainerSource);
+            try
+            {
+                var containerSource = (ContainerSource)SecureResource.Create(this.ContainerSource, (IResourceResolutionContext)context);
+                var containerId = new ContainerId(this.ContainerSource, containerSource?.RegistryPrefix, this.RepositoryName, this.Tag);
+                if (!string.IsNullOrEmpty(this.ContainerSource))
+                    containerId = await this.PullAsync(context, containerId);
 
-            var containerConfigArgs = await this.GetContainerConfigText(context);
-            if (containerConfigArgs == null)
-                return;
+                var containerConfigArgs = await this.GetContainerConfigText(context);
+                if (containerConfigArgs == null)
+                    return;
 
-            var escapeArg = GetEscapeArg(context);
+                var escapeArg = GetEscapeArg(context);
 
-            var args = new StringBuilder("run ");
-            args.Append(containerConfigArgs);
-            args.Append(' ');
-            if (this.RunInBackground)
-                args.Append("-d ");
-            else if (string.IsNullOrWhiteSpace(this.ContainerName))
-                args.Append("--rm ");
+                var args = new StringBuilder("run ");
+                args.Append(containerConfigArgs);
+                args.Append(' ');
+                if (this.RunInBackground)
+                    args.Append("-d ");
+                else if (string.IsNullOrWhiteSpace(this.ContainerName))
+                    args.Append("--rm ");
 
-            if (!string.IsNullOrWhiteSpace(this.ContainerName))
-                args.Append($"--name {escapeArg(this.ContainerName)} ");
+                if (!string.IsNullOrWhiteSpace(this.ContainerName))
+                    args.Append($"--name {escapeArg(this.ContainerName)} ");
 
-            args.Append(escapeArg(containerId.FullName));
+                args.Append(escapeArg(containerId.FullName));
 
-            var argsText = args.ToString();
-            this.LogDebug($"Executing docker {argsText}...");
+                var argsText = args.ToString();
+                this.LogDebug($"Executing docker {argsText}...");
 
-            int result = await this.ExecuteCommandLineAsync(
-                context,
-                new RemoteProcessStartInfo
-                {
-                    FileName = this.DockerExePath,
-                    Arguments = argsText
-                }
-            );
+                int result = await this.ExecuteCommandLineAsync(
+                    context,
+                    new RemoteProcessStartInfo
+                    {
+                        FileName = this.DockerExePath,
+                        Arguments = argsText
+                    }
+                );
 
-            this.Log(result == 0 ? MessageLevel.Debug : MessageLevel.Error, "Docker exited with code " + result);
+                this.Log(result == 0 ? MessageLevel.Debug : MessageLevel.Error, "Docker exited with code " + result);
+            }
+            finally
+            {
+                await this.LogoutAsync(context, this.ContainerSource);
+            }
         }
 
         protected override ExtendedRichDescription GetDescription(IOperationConfiguration config)

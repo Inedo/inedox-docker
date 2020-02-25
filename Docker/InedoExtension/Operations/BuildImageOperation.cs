@@ -1,7 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.ComponentModel;
-using System.IO;
 using System.Threading.Tasks;
 using Inedo.Agents;
 using Inedo.Diagnostics;
@@ -10,7 +8,9 @@ using Inedo.ExecutionEngine;
 using Inedo.Extensibility;
 using Inedo.Extensibility.Operations;
 using Inedo.Extensibility.RaftRepositories;
+using Inedo.Extensibility.SecureResources;
 using Inedo.Extensions.Docker.SuggestionProviders;
+using Inedo.Extensions.SecureResources;
 using Inedo.Web;
 using Inedo.Web.Plans.ArgumentEditors;
 
@@ -62,66 +62,74 @@ namespace Inedo.Extensions.Docker.Operations
 
         public override async Task ExecuteAsync(IOperationExecutionContext context)
         {
-            var procExec = await context.Agent.GetServiceAsync<IRemoteProcessExecuter>();
-            var fileOps = await context.Agent.GetServiceAsync<IFileOperationsExecuter>();
-            await fileOps.CreateDirectoryAsync(context.WorkingDirectory);
-            var sourcePath = context.ResolvePath(this.SourceDirectory);
-            await fileOps.CreateDirectoryAsync(sourcePath);
-
-            if (!string.IsNullOrWhiteSpace(this.DockerfileTemplate))
+            await this.LoginAsync(context, this.ContainerSource);
+            try
             {
-                var item = SDK.GetRaftItem(RaftItemType.TextTemplate, this.DockerfileTemplate, context);
-                if (item == null)
-                {
-                    this.LogError($"Text template \"{this.DockerfileTemplate}\" not found.");
-                    return;
-                }
-
-                var dockerfileText = await context.ApplyTextTemplateAsync(item.Content, this.TemplateArguments != null ? new Dictionary<string, RuntimeValue>(this.TemplateArguments) : null);
-
+                var procExec = await context.Agent.GetServiceAsync<IRemoteProcessExecuter>();
+                var fileOps = await context.Agent.GetServiceAsync<IFileOperationsExecuter>();
+                await fileOps.CreateDirectoryAsync(context.WorkingDirectory);
+                var sourcePath = context.ResolvePath(this.SourceDirectory);
+                await fileOps.CreateDirectoryAsync(sourcePath);
                 var dockerfilePath = fileOps.CombinePath(sourcePath, "Dockerfile");
 
-                await fileOps.WriteAllTextAsync(dockerfilePath, dockerfileText, InedoLib.UTF8Encoding);
-            }
-
-            var containerId = new ContainerId(this.ContainerSource, this.RepositoryName, this.Tag);
-            var escapeArg = GetEscapeArg(context);
-
-            var args = $"build --force-rm --progress=plain --tag={escapeArg(containerId.FullName)} {this.AdditionalArguments} .";
-            this.LogDebug("Executing docker " + args);
-
-            using (var process = procExec.CreateProcess(new RemoteProcessStartInfo
-            {
-                FileName = this.DockerExePath,
-                Arguments = args,
-                WorkingDirectory = sourcePath,
-                EnvironmentVariables =
+                if (!string.IsNullOrWhiteSpace(this.DockerfileTemplate))
                 {
-                    ["DOCKER_BUILDKIT"] = "1"
+                    var item = SDK.GetRaftItem(RaftItemType.TextTemplate, this.DockerfileTemplate, context);
+                    if (item == null)
+                    {
+                        this.LogError($"Text template \"{this.DockerfileTemplate}\" not found.");
+                        return;
+                    }
+
+                    var dockerfileText = await context.ApplyTextTemplateAsync(item.Content, this.TemplateArguments != null ? new Dictionary<string, RuntimeValue>(this.TemplateArguments) : null);
+
+                    await fileOps.WriteAllTextAsync(dockerfilePath, dockerfileText, InedoLib.UTF8Encoding);
                 }
-            }))
-            {
-                process.OutputDataReceived += (s, e) => this.LogInformation(e.Data);
-                process.ErrorDataReceived += (s, e) => this.LogBuildError(context, e.Data);
 
-                process.Start();
-                await process.WaitAsync(context.CancellationToken);
+                var containerSource = (ContainerSource)SecureResource.Create(this.ContainerSource, (IResourceResolutionContext)context);
+                var containerId = new ContainerId(this.ContainerSource, containerSource?.RegistryPrefix, this.RepositoryName, this.Tag);
 
-                if (process.ExitCode != 0)
+                var escapeArg = GetEscapeArg(context);
+                var args = $"build --force-rm --progress=plain --tag={escapeArg(containerId.FullName)} {this.AdditionalArguments} {escapeArg(sourcePath)}";
+                this.LogDebug("Executing docker " + args);
+
+                using (var process = procExec.CreateProcess(new RemoteProcessStartInfo
                 {
-                    this.LogError($"exit code: {process.ExitCode ?? -1}");
-                    return;
+                    FileName = this.DockerExePath,
+                    Arguments = args,
+                    WorkingDirectory = sourcePath,
+                    EnvironmentVariables =
+                {
+                    //["DOCKER_BUILDKIT"] = "1"
                 }
+                }))
+                {
+                    process.OutputDataReceived += (s, e) => this.LogInformation(e.Data);
+                    process.ErrorDataReceived += (s, e) => this.LogBuildError(context, e.Data);
+
+                    process.Start();
+                    await process.WaitAsync(context.CancellationToken);
+
+                    if (process.ExitCode != 0)
+                    {
+                        this.LogError($"exit code: {process.ExitCode ?? -1}");
+                        return;
+                    }
+                }
+
+                var digest = await this.ExecuteGetDigest(context, containerId.FullName);
+                containerId = containerId.WithDigest(digest);
+
+                if (!string.IsNullOrEmpty(this.ContainerSource))
+                    await this.PushAsync(context, containerId);
+
+                if (this.AttachToBuild)
+                    await this.AttachToBuildAsync(context, containerId);
             }
-
-            var digest = await this.ExecuteGetDigest(context, containerId.FullName);
-            containerId = containerId.WithDigest(digest);
-
-            if (!string.IsNullOrEmpty(this.ContainerSource))
-                await this.PushAsync(context, containerId);
-
-            if (this.AttachToBuild)
-                await this.AttachToBuildAsync(context, containerId);
+            finally
+            {
+                await this.LogoutAsync(context, this.ContainerSource);
+            }
         }
 
         protected override ExtendedRichDescription GetDescription(IOperationConfiguration config)
