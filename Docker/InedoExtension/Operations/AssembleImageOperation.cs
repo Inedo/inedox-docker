@@ -118,12 +118,12 @@ namespace Inedo.Extensions.Docker.Operations
                 {
                     writer.NewLine = "\n";
 
-                    await writer.WriteLineAsync($"FROM {baseId.FullerName}");
-                    foreach (var kv in this.EnvironmentVariables)
+                    await writer.WriteLineAsync($"FROM {baseId.FullName}");
+                    foreach (var kv in this.EnvironmentVariables ?? new Dictionary<string, string>())
                     {
                         await writer.WriteLineAsync($"ENV {kv.Key} {kv.Value}");
                     }
-                    foreach (var vol in this.Volumes)
+                    foreach (var vol in this.Volumes ?? new List<string>())
                     {
                         await writer.WriteLineAsync($"VOLUME {vol}");
                     }
@@ -137,7 +137,7 @@ namespace Inedo.Extensions.Docker.Operations
                 var containerId = new ContainerId(this.ContainerSource, containerSource?.RegistryPrefix, this.RepositoryName, this.Tag);
                 var escapeArg = GetEscapeArg(context);
 
-                var args = $"build --force-rm --progress=plain --tag={escapeArg(containerId.FullName)} {this.AdditionalArguments} .";
+                var args = $"build --force-rm --progress=plain --tag={escapeArg(containerId.FullName)} {this.AdditionalArguments} {escapeArg(sourcePath)}";
                 this.LogDebug("Executing docker " + args);
 
                 using (var process = procExec.CreateProcess(new RemoteProcessStartInfo

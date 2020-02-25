@@ -154,7 +154,7 @@ namespace Inedo.Extensions.Docker.Operations
                 this.Digest = digest;
             }
 
-            public string FullName => this.Prefix + "/" + this.Name + ":" + this.Tag;
+            public string FullName => (this.Prefix + "/" + this.Name + ":" + this.Tag).ToLower();
             public string FullerName => this.FullName + AH.ConcatNE("@", this.Digest);
 
             public static implicit operator AttachedContainer(ContainerId containerId)
