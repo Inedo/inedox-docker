@@ -2,15 +2,8 @@
 using Inedo.Extensibility;
 using Inedo.Extensibility.SecureResources;
 using Inedo.Extensibility.VariableFunctions;
-using Inedo.Extensions.Docker.SuggestionProviders;
 using Inedo.Extensions.SecureResources;
-using Inedo.Web;
-using System;
-using System.Collections.Generic;
 using System.ComponentModel;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using static Inedo.Extensions.Docker.Operations.DockerOperation;
 
 namespace Inedo.Extensions.Docker.VariableFunctions
