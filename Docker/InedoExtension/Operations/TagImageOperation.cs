@@ -5,7 +5,9 @@ using Inedo.Diagnostics;
 using Inedo.Documentation;
 using Inedo.Extensibility;
 using Inedo.Extensibility.Operations;
+using Inedo.Extensibility.SecureResources;
 using Inedo.Extensions.Docker.SuggestionProviders;
+using Inedo.Extensions.SecureResources;
 using Inedo.Web;
 
 namespace Inedo.Extensions.Docker.Operations
@@ -18,6 +20,7 @@ namespace Inedo.Extensions.Docker.Operations
     {
         [Required]
         [Category("Source")]
+        [ScriptAlias("RepositoryName")]
         [ScriptAlias("Repository")]
         [DisplayName("Repository name")]
         public string RepositoryName { get; set; }
@@ -39,6 +42,7 @@ namespace Inedo.Extensions.Docker.Operations
         public bool DeactivateOriginalTag { get; set; } = true;
 
         [Category("Destination")]
+        [ScriptAlias("NewRepositoryName")]
         [ScriptAlias("NewRepository")]
         [DisplayName("Repository name")]
         [PlaceholderText("(same as original repository name)")]
@@ -62,54 +66,64 @@ namespace Inedo.Extensions.Docker.Operations
 
         public override async Task ExecuteAsync(IOperationExecutionContext context)
         {
-            var fileOps = await context.Agent.GetServiceAsync<IFileOperationsExecuter>();
-            await fileOps.CreateDirectoryAsync(context.WorkingDirectory);
-
-            this.NewRepositoryName = AH.CoalesceString(this.NewRepositoryName, this.RepositoryName);
-            if (string.IsNullOrWhiteSpace(this.NewContainerSource))
+            await this.LoginAsync(context, this.ContainerSource);
+            try
             {
-                if (this.NewContainerSource == null)
-                    this.NewContainerSource = this.ContainerSource;
-                else
-                    this.NewContainerSource = null;
-            }
+                var fileOps = await context.Agent.GetServiceAsync<IFileOperationsExecuter>();
+                await fileOps.CreateDirectoryAsync(context.WorkingDirectory);
 
-            var oldContainerId = new ContainerId(this.ContainerSource, this.RepositoryName, this.OriginalTag);
-            var newContainerId = new ContainerId(this.NewContainerSource, this.NewRepositoryName, this.NewTag);
-
-            if (!string.IsNullOrEmpty(this.ContainerSource))
-                oldContainerId = await this.PullAsync(context, oldContainerId);
-            else
-                oldContainerId = oldContainerId.WithDigest(await this.ExecuteGetDigest(context, oldContainerId.FullName));
-
-            newContainerId = newContainerId.WithDigest(oldContainerId.Digest);
-
-            var escapeArg = GetEscapeArg(context);
-
-            int result = await this.ExecuteCommandLineAsync(
-                context,
-                new RemoteProcessStartInfo
+                this.NewRepositoryName = AH.CoalesceString(this.NewRepositoryName, this.RepositoryName);
+                if (string.IsNullOrWhiteSpace(this.NewContainerSource))
                 {
-                    FileName = this.DockerExePath,
-                    Arguments = $"tag {escapeArg(oldContainerId.FullName)} {escapeArg(newContainerId.FullName)}"
+                    if (this.NewContainerSource == null)
+                        this.NewContainerSource = this.ContainerSource;
+                    else
+                        this.NewContainerSource = null;
                 }
-            );
-            if (result != 0)
-            {
-                this.LogError("Docker exited with code " + result);
-                return;
+                var containerSource = (ContainerSource)SecureResource.Create(this.ContainerSource, (IResourceResolutionContext)context);
+                var oldContainerId = new ContainerId(this.ContainerSource, containerSource?.RegistryPrefix, this.RepositoryName, this.OriginalTag);
+
+                var newContainerSource = (ContainerSource)SecureResource.Create(this.NewContainerSource, (IResourceResolutionContext)context);
+                var newContainerId = new ContainerId(this.NewContainerSource, newContainerSource?.RegistryPrefix, this.NewRepositoryName, this.NewTag);
+
+                if (!string.IsNullOrEmpty(this.ContainerSource))
+                    oldContainerId = await this.PullAsync(context, oldContainerId);
+                else
+                    oldContainerId = oldContainerId.WithDigest(await this.ExecuteGetDigest(context, oldContainerId.FullName));
+
+                newContainerId = newContainerId.WithDigest(oldContainerId.Digest);
+
+                var escapeArg = GetEscapeArg(context);
+
+                int result = await this.ExecuteCommandLineAsync(
+                    context,
+                    new RemoteProcessStartInfo
+                    {
+                        FileName = this.DockerExePath,
+                        Arguments = $"tag {escapeArg(oldContainerId.FullName)} {escapeArg(newContainerId.FullName)}"
+                    }
+                );
+                if (result != 0)
+                {
+                    this.LogError("Docker exited with code " + result);
+                    return;
+                }
+
+                if (!string.IsNullOrEmpty(this.NewContainerSource))
+                {
+                    await this.PushAsync(context, newContainerId);
+                }
+
+                if (this.AttachToBuild)
+                    await this.AttachToBuildAsync(context, newContainerId);
+
+                if (this.DeactivateOriginalTag)
+                    await this.DeactivateAttachedAsync(context, oldContainerId);
             }
-
-            if (!string.IsNullOrEmpty(this.NewContainerSource))
+            finally
             {
-                await this.PushAsync(context, newContainerId);
+                await this.LogoutAsync(context, this.ContainerSource);
             }
-
-            if (this.AttachToBuild)
-                await this.AttachToBuildAsync(context, newContainerId);
-
-            if (this.DeactivateOriginalTag)
-                await this.DeactivateAttachedAsync(context, oldContainerId);
         }
 
         protected override ExtendedRichDescription GetDescription(IOperationConfiguration config)
