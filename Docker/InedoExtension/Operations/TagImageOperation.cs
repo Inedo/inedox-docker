@@ -20,6 +20,7 @@ namespace Inedo.Extensions.Docker.Operations
     {
         [Required]
         [Category("Source")]
+        [ScriptAlias("RepositoryName")]
         [ScriptAlias("Repository")]
         [DisplayName("Repository name")]
         public string RepositoryName { get; set; }
@@ -41,6 +42,7 @@ namespace Inedo.Extensions.Docker.Operations
         public bool DeactivateOriginalTag { get; set; } = true;
 
         [Category("Destination")]
+        [ScriptAlias("NewRepositoryName")]
         [ScriptAlias("NewRepository")]
         [DisplayName("Repository name")]
         [PlaceholderText("(same as original repository name)")]

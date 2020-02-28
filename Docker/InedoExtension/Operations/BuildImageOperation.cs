@@ -35,7 +35,7 @@ namespace Inedo.Extensions.Docker.Operations
         public IDictionary<string, RuntimeValue> TemplateArguments { get; set; }
         [Required]
         [ScriptAlias("Source")]
-        [DisplayName("Container Source")]
+        [DisplayName("Container Registry Source")]
         [SuggestableValue(typeof(ContainerSourceSuggestionProvider))]
         public string ContainerSource { get; set; }
         [ScriptAlias("From")]
@@ -44,6 +44,7 @@ namespace Inedo.Extensions.Docker.Operations
         [FilePathEditor]
         public string SourceDirectory { get; set; }
         [Required]
+        [ScriptAlias("RepositoryName")]
         [ScriptAlias("Repository")]
         [DisplayName("Repository name")]
         public string RepositoryName { get; set; }

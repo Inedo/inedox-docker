@@ -35,16 +35,16 @@ namespace Inedo.Extensions.Docker.Operations
             return procExec.EscapeArg;
         }
 
-        protected async Task<ProcessOutput> ExecuteDockerAsync(IOperationExecutionContext context, string command, string arguments, string workingDirectory)
+        protected async Task<ProcessOutput> ExecuteDockerAsync(IOperationExecutionContext context, string command, string arguments)
         {
             var fileOps = await context.Agent.GetServiceAsync<IFileOperationsExecuter>();
-            await fileOps.CreateDirectoryAsync(workingDirectory);
+            await fileOps.CreateDirectoryAsync(context.WorkingDirectory);
 
             var output = new List<string>();
             var error = new List<string>();
 
             var exec = await context.Agent.GetServiceAsync<IRemoteProcessExecuter>();
-            using (var process = exec.CreateProcess(new RemoteProcessStartInfo { FileName = this.DockerExePath, Arguments = command + " " + arguments, WorkingDirectory = workingDirectory }))
+            using (var process = exec.CreateProcess(new RemoteProcessStartInfo { FileName = this.DockerExePath, Arguments = command + " " + arguments, WorkingDirectory = context.WorkingDirectory }))
             {
                 process.OutputDataReceived += (s, e) => write(e.Data, output);
                 process.ErrorDataReceived += (s, e) => write(e.Data, error);
@@ -69,7 +69,7 @@ namespace Inedo.Extensions.Docker.Operations
         protected async Task<string> ExecuteGetDigest(IOperationExecutionContext context, string tag)
         {
             var escapeArg = GetEscapeArg(context);
-            var result = await this.ExecuteDockerAsync(context, "inspect", "--format='{{.Id}}' " + escapeArg(tag), context.WorkingDirectory);
+            var result = await this.ExecuteDockerAsync(context, "inspect", "--format='{{.Id}}' " + escapeArg(tag));
             if (result.ExitCode == 0 && result.Output.Count == 1)
                 return result.Output[0].Trim();
             else
@@ -155,8 +155,7 @@ namespace Inedo.Extensions.Docker.Operations
             }
 
             public string FullName => (this.Prefix + "/" + this.Name + ":" + this.Tag).ToLower();
-            public string FullerName => this.FullName + AH.ConcatNE("@", this.Digest);
-
+            
             public static implicit operator AttachedContainer(ContainerId containerId)
                 => new AttachedContainer(containerId.Name, containerId.Tag, containerId.Digest, containerId.Source);
 
@@ -182,15 +181,14 @@ namespace Inedo.Extensions.Docker.Operations
             var source = (ContainerSource)SecureResource.Create(containerSource, (IResourceResolutionContext)context);
             var creds = source.GetCredentials((ICredentialResolutionContext)context);
             if (creds == null)
-            {
                 return;
-            }
+
             var userpass = source.GetCredentials((ICredentialResolutionContext)context) as UsernamePasswordCredentials;
             if (userpass == null)
                 userpass = new UsernamePasswordCredentials { UserName = "api", Password = ((TokenCredentials)creds).Token };
 
             var escapeArg = GetEscapeArg(context);
-            var output = await this.ExecuteDockerAsync(context, "login", $"{escapeArg(source.RegistryPrefix)} -u {escapeArg(userpass.UserName)} -p {escapeArg(AH.Unprotect(userpass.Password))}", context.WorkingDirectory);
+            var output = await this.ExecuteDockerAsync(context, "login", $"{escapeArg(source.RegistryPrefix)} -u {escapeArg(userpass.UserName)} -p {escapeArg(AH.Unprotect(userpass.Password))}");
             if (output.ExitCode == 0)
                 return;
 
@@ -203,16 +201,14 @@ namespace Inedo.Extensions.Docker.Operations
             var source = (ContainerSource)SecureResource.Create(containerSource, (IResourceResolutionContext)context);
             var creds = source.GetCredentials((ICredentialResolutionContext)context);
             if (creds == null)
-            {
-                this.LogWarning("Credentials are required to Login.");
                 return;
-            }
+
             var userpass = source.GetCredentials((ICredentialResolutionContext)context) as UsernamePasswordCredentials;
             if (userpass == null)
                 userpass = new UsernamePasswordCredentials { UserName = "api", Password = ((TokenCredentials)creds).Token };
 
             var escapeArg = GetEscapeArg(context);
-            var output = await this.ExecuteDockerAsync(context, "logout", $"{escapeArg(source.RegistryPrefix)}", context.WorkingDirectory);
+            var output = await this.ExecuteDockerAsync(context, "logout", $"{escapeArg(source.RegistryPrefix)}");
             if (output.ExitCode == 0)
                 return;
 
@@ -246,7 +242,7 @@ namespace Inedo.Extensions.Docker.Operations
             var exitCode = await this.ExecuteCommandLineAsync(context, new RemoteProcessStartInfo
             {
                 FileName = this.DockerExePath,
-                Arguments = "pull " + escapeArg(containerId.FullerName),
+                Arguments = "pull " + escapeArg(containerId.FullName),
                 WorkingDirectory = context.WorkingDirectory
             });
 

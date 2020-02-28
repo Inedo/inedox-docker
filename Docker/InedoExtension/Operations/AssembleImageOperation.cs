@@ -29,6 +29,7 @@ namespace Inedo.Extensions.Docker.Operations
         public string ContainerSource { get; set; }
         [Required]
         [Category("Image")]
+        [ScriptAlias("RepositoryName")]
         [ScriptAlias("Repository")]
         [DisplayName("Repository name")]
         public string RepositoryName { get; set; }
@@ -45,6 +46,7 @@ namespace Inedo.Extensions.Docker.Operations
         public string BaseContainerSource { get; set; }
         [Required]
         [Category("Base")]
+        [ScriptAlias("BaseRepositoryName")]
         [ScriptAlias("BaseRepository")]
         [DisplayName("Repository name")]
         public string BaseRepositoryName { get; set; }
@@ -108,6 +110,7 @@ namespace Inedo.Extensions.Docker.Operations
 
                 var baseContainerSource = (ContainerSource)SecureResource.Create(this.BaseContainerSource, (IResourceResolutionContext)context);
                 var baseId = new ContainerId(this.BaseContainerSource, baseContainerSource?.RegistryPrefix, this.BaseRepositoryName, this.BaseTag);
+
                 if (!string.IsNullOrEmpty(this.ContainerSource))
                     baseId = await this.PullAsync(context, baseId);
                 else

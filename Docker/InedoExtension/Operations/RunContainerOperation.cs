@@ -29,6 +29,7 @@ namespace Inedo.Extensions.Docker.Operations
         [SuggestableValue(typeof(ContainerSourceSuggestionProvider))]
         public string ContainerSource { get; set; }
         [Required]
+        [ScriptAlias("RepositoryName")]
         [ScriptAlias("Repository")]
         [DisplayName("Repository name")]
         public string RepositoryName { get; set; }
@@ -46,6 +47,7 @@ namespace Inedo.Extensions.Docker.Operations
         [SuggestableValue(typeof(ConfigurationInstanceSuggestionProvider))]
         public string ConfigInstanceName { get; set; }
         [DisplayName("Container name")]
+        [ScriptAlias("ContainerName")]
         [ScriptAlias("Container")]
         [PlaceholderText("auto")]
         public string ContainerName { get; set; }

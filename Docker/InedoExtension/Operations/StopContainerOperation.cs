@@ -16,6 +16,7 @@ namespace Inedo.Extensions.Docker.Operations
     public sealed class StopContainerOperation : DockerOperation
     {
         [Required]
+        [ScriptAlias("ContainerName")]
         [ScriptAlias("Container")]
         [DisplayName("Container name")]
         public string ContainerName { get; set; }
@@ -23,6 +24,10 @@ namespace Inedo.Extensions.Docker.Operations
         [DisplayName("Remove after stop")]
         [DefaultValue(true)]
         public bool Remove { get; set; } = true;
+        [DefaultValue(false)]
+        [ScriptAlias("FailIfContainerDoesNotExist")]
+        [DisplayName("Fail if container does not exist")]
+        public bool FailIfContinerDoesNotExist { get; set; } = false;
 
         public override async Task ExecuteAsync(IOperationExecutionContext context)
         {
@@ -39,7 +44,7 @@ namespace Inedo.Extensions.Docker.Operations
                 }
             );
 
-            this.Log(result == 0 ? MessageLevel.Debug : MessageLevel.Error, "Docker exited with code " + result);
+            this.Log(result == 0 ? MessageLevel.Debug : (FailIfContinerDoesNotExist ? MessageLevel.Error : MessageLevel.Warning), "Docker exited with code " + result);
 
             if (this.Remove)
             {
@@ -52,7 +57,7 @@ namespace Inedo.Extensions.Docker.Operations
                     }
                 );
 
-                this.Log(result == 0 ? MessageLevel.Debug : MessageLevel.Error, "Docker exited with code " + result);
+                this.Log(result == 0 ? MessageLevel.Debug : (FailIfContinerDoesNotExist ? MessageLevel.Error : MessageLevel.Warning), "Docker exited with code " + result);
             }
         }
 
