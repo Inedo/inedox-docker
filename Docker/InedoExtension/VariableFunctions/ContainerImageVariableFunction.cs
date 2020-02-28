@@ -25,12 +25,11 @@ namespace Inedo.Extensions.Docker.VariableFunctions
     {
         [DisplayName("Source")]
         [VariableFunctionParameter(0)]
-        [SuggestableValue(typeof(ContainerSourceSuggestionProvider))]
-        [Description("Container Registry Source")]
+        [Description("Container Registry Secured Resource Name")]
         public string ContainerSource { get; set; }
         [DisplayName("RepositoryName")]
         [VariableFunctionParameter(1)]
-        [Description("Repository name")]
+        [Description("Container Repository name")]
         public string RepositoryName { get; set; }
         [DisplayName("Tag")]
         [VariableFunctionParameter(2)]
