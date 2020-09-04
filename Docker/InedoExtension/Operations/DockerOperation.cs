@@ -89,7 +89,7 @@ namespace Inedo.Extensions.Docker.Operations
 
                 bool finished = false;
                 MessageLevel level;
-                if (decimal.TryParse(firstWord, out var timeSpent))
+                if (decimal.TryParse(firstWord, out _))
                 {
                     level = MessageLevel.Debug;
                     message = message.Substring(message.IndexOf(' ') + 1).TrimEnd('\r');
@@ -155,9 +155,8 @@ namespace Inedo.Extensions.Docker.Operations
             }
 
             public string FullName => (this.Prefix + "/" + this.Name + ":" + this.Tag).ToLower();
-            
-            public static implicit operator AttachedContainer(ContainerId containerId)
-                => new AttachedContainer(containerId.Name, containerId.Tag, containerId.Digest, containerId.Source);
+
+            public static implicit operator AttachedContainer(ContainerId containerId) => new AttachedContainer(containerId.Name, containerId.Tag, containerId.Digest, containerId.Source);
 
             public ContainerId WithDigest(string digest) => new ContainerId(this.Source, this.Prefix, this.Name, this.Tag, digest);
         }
@@ -230,6 +229,23 @@ namespace Inedo.Extensions.Docker.Operations
 
             if (exitCode != 0)
                 throw new ExecutionFailureException($"docker push returned code {exitCode}");
+        }
+
+        protected async Task RemoveAsync(IOperationExecutionContext context, ContainerId containerId)
+        {
+            if (string.IsNullOrEmpty(containerId.Source))
+                throw new InvalidOperationException("cannot push a container with no associated source");
+
+            var escapeArg = GetEscapeArg(context);
+            var exitCode = await this.ExecuteCommandLineAsync(context, new RemoteProcessStartInfo
+            {
+                FileName = this.DockerExePath,
+                Arguments = "rmi " + escapeArg(containerId.FullName),
+                WorkingDirectory = context.WorkingDirectory
+            });
+
+            if (exitCode != 0)
+                throw new ExecutionFailureException($"docker rmi returned code {exitCode}");
         }
 
         protected async Task<ContainerId> PullAsync(IOperationExecutionContext context, ContainerId containerId)

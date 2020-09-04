@@ -35,7 +35,7 @@ namespace Inedo.Extensions.Docker.Operations
         public IDictionary<string, RuntimeValue> TemplateArguments { get; set; }
         [Required]
         [ScriptAlias("Source")]
-        [DisplayName("Container Registry Source")]
+        [DisplayName("Container registry source")]
         [SuggestableValue(typeof(ContainerSourceSuggestionProvider))]
         public string ContainerSource { get; set; }
         [ScriptAlias("From")]
@@ -60,6 +60,10 @@ namespace Inedo.Extensions.Docker.Operations
         [DisplayName("Attach to build")]
         [DefaultValue(true)]
         public bool AttachToBuild { get; set; } = true;
+        [Category("Advanced")]
+        [ScriptAlias("RemoveAfterPush")]
+        [DisplayName("Remove after pushing")]
+        public bool RemoveAfterPush { get; set; }
 
         public override async Task ExecuteAsync(IOperationExecutionContext context)
         {
@@ -94,16 +98,14 @@ namespace Inedo.Extensions.Docker.Operations
                 var args = $"build --force-rm --progress=plain --tag={escapeArg(containerId.FullName)} {this.AdditionalArguments} {escapeArg(sourcePath)}";
                 this.LogDebug("Executing docker " + args);
 
-                using (var process = procExec.CreateProcess(new RemoteProcessStartInfo
+                var startInfo = new RemoteProcessStartInfo
                 {
                     FileName = this.DockerExePath,
                     Arguments = args,
-                    WorkingDirectory = sourcePath,
-                    EnvironmentVariables =
-                {
-                    //["DOCKER_BUILDKIT"] = "1"
-                }
-                }))
+                    WorkingDirectory = sourcePath
+                };
+
+                using (var process = procExec.CreateProcess(startInfo))
                 {
                     process.OutputDataReceived += (s, e) => this.LogInformation(e.Data);
                     process.ErrorDataReceived += (s, e) => this.LogBuildError(context, e.Data);
@@ -122,7 +124,15 @@ namespace Inedo.Extensions.Docker.Operations
                 containerId = containerId.WithDigest(digest);
 
                 if (!string.IsNullOrEmpty(this.ContainerSource))
+                {
                     await this.PushAsync(context, containerId);
+
+                    if (this.RemoveAfterPush)
+                    {
+                        this.LogDebug("Removing local image after successful push...");
+                        await this.RemoveAsync(context, containerId);
+                    }
+                }
 
                 if (this.AttachToBuild)
                     await this.AttachToBuildAsync(context, containerId);
