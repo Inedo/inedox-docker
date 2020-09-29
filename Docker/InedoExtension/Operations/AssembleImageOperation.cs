@@ -63,13 +63,11 @@ namespace Inedo.Extensions.Docker.Operations
         [PlaceholderText("$WorkingDirectory")]
         [FilePathEditor]
         public string SourceDirectory { get; set; }
-        [Required]
         [Category("Contents")]
         [ScriptAlias("To")]
         [DisplayName("Internal path")]
         [PlaceholderText("eg. /opt/myapplication")]
         public string DestinationDirectory { get; set; }
-        [Required]
         [Category("Contents")]
         [ScriptAlias("Cmd")]
         [DisplayName("Command")]
@@ -130,9 +128,15 @@ namespace Inedo.Extensions.Docker.Operations
                     {
                         await writer.WriteLineAsync($"VOLUME {vol}");
                     }
-                    await writer.WriteLineAsync($"COPY . {this.DestinationDirectory}");
-                    await writer.WriteLineAsync($"WORKDIR {this.DestinationDirectory}");
-                    await writer.WriteLineAsync($"CMD {this.Command}");
+                    if (!string.IsNullOrWhiteSpace(this.DestinationDirectory))
+                    {
+                        await writer.WriteLineAsync($"COPY . {this.DestinationDirectory}");
+                        await writer.WriteLineAsync($"WORKDIR {this.DestinationDirectory}");
+                    }
+                    if (!string.IsNullOrWhiteSpace(this.Command))
+                    {
+                        await writer.WriteLineAsync($"CMD {this.Command}");
+                    }
                     await writer.FlushAsync();
                 }
 
