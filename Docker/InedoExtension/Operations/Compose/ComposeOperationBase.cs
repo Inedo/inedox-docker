@@ -62,7 +62,7 @@ namespace Inedo.Extensions.Docker.Operations.Compose
 
 
             string composeFileName = null;
-            if (this.ComposeFileYaml.EndsWith(".yaml", StringComparison.OrdinalIgnoreCase))
+            if (this.ComposeFileYaml.EndsWith(".yml", StringComparison.OrdinalIgnoreCase))
             {
                 composeFileName = context.ResolvePath(this.ComposeFileYaml, workingDirectory);
             }
@@ -95,7 +95,7 @@ namespace Inedo.Extensions.Docker.Operations.Compose
 
             try
             {
-                if (!this.ComposeFileYaml.EndsWith(".yaml", StringComparison.OrdinalIgnoreCase))
+                if (!this.ComposeFileYaml.EndsWith(".yml", StringComparison.OrdinalIgnoreCase))
                     await fileOps.WriteAllTextAsync(composeFileName, this.ComposeFileYaml);
                
                 this.LogDebug($"Running command: {startInfo.FileName} {startInfo.Arguments}");
