@@ -26,9 +26,14 @@ namespace Inedo.Extensions.Docker.Operations.Compose
         [Required]
         [ScriptAlias("ComposeYaml")]
         [DisplayName("Compose file (YAML)")]
+        [Description("You can specify the path to the \"docker-compose.yaml\" or this can be the compose file contents, eg. $FileContents(docker-compose.yml) or $ConfigurationFileText(Integration, docker-compose.yaml)")]
         [FieldEditMode(FieldEditMode.Multiline)]
         [PlaceholderText("eg. $FileContents(docker-compose.yml)")]
         public string ComposeFileYaml { get; set; }
+
+        [ScriptAlias("WorkingDirectory")]
+        [DisplayName("Working directory")]
+        public string WorkingDirectory { get; set; }
 
         [Category("Advanced")]
         [DefaultValue(false)]
@@ -50,15 +55,28 @@ namespace Inedo.Extensions.Docker.Operations.Compose
         {
             var fileOps = await context.Agent.TryGetServiceAsync<ILinuxFileOperationsExecuter>() ?? await context.Agent.GetServiceAsync<IFileOperationsExecuter>();
             var procExec = await context.Agent.GetServiceAsync<IRemoteProcessExecuter>();
-            await fileOps.CreateDirectoryAsync(context.WorkingDirectory);
+            var workingDirectory = context.ResolvePath(string.IsNullOrWhiteSpace(this.WorkingDirectory) ? context.WorkingDirectory : this.WorkingDirectory);
 
-            var baseDir = await fileOps.GetBaseWorkingDirectoryAsync();
-            await fileOps.CreateDirectoryAsync(fileOps.CombinePath(baseDir, "scripts"));
-            var composeFileName = fileOps.CombinePath(baseDir, "scripts", Guid.NewGuid().ToString("N") + ".yml");
+            this.LogDebug($"Working directory: {workingDirectory}");
+            await fileOps.CreateDirectoryAsync(workingDirectory);
+
+
+            string composeFileName = null;
+            if (this.ComposeFileYaml.EndsWith(".yaml", StringComparison.OrdinalIgnoreCase))
+            {
+                composeFileName = context.ResolvePath(this.ComposeFileYaml, workingDirectory);
+            }
+            else
+            {
+                await fileOps.CreateDirectoryAsync(fileOps.CombinePath(workingDirectory, "scripts"));
+                composeFileName = fileOps.CombinePath(workingDirectory, "scripts", Guid.NewGuid().ToString("N") + ".yml");
+            }
+
+
             var startInfo = new RemoteProcessStartInfo
             {
                 FileName = "docker-compose",
-                WorkingDirectory = context.WorkingDirectory
+                WorkingDirectory = workingDirectory
             };
 
             startInfo.AppendArgs(procExec, new[]
@@ -77,10 +95,9 @@ namespace Inedo.Extensions.Docker.Operations.Compose
 
             try
             {
-                await fileOps.WriteAllTextAsync(composeFileName, this.ComposeFileYaml);
-
-                this.LogDebug($"Working directory: {startInfo.WorkingDirectory}");
-                await fileOps.CreateDirectoryAsync(startInfo.WorkingDirectory);
+                if (!this.ComposeFileYaml.EndsWith(".yaml", StringComparison.OrdinalIgnoreCase))
+                    await fileOps.WriteAllTextAsync(composeFileName, this.ComposeFileYaml);
+               
                 this.LogDebug($"Running command: {startInfo.FileName} {startInfo.Arguments}");
 
                 int? exitCode;
@@ -111,7 +128,7 @@ namespace Inedo.Extensions.Docker.Operations.Compose
             {
                 FileName = fileOps is ILinuxFileOperationsExecuter ? "/usr/bin/which" : "System32\\where.exe",
                 Arguments = procExec.EscapeArg(startInfo.FileName),
-                WorkingDirectory = context.WorkingDirectory
+                WorkingDirectory = workingDirectory
             };
 
             if (fileOps is ILinuxFileOperationsExecuter)
