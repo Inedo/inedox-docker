@@ -84,7 +84,10 @@
     <Compile Include="Operations\Compose\DockerComposeSetStatusOperation.cs" />
     <Compile Include="Operations\Compose\DockerComposeDownOperation.cs" />
     <Compile Include="Operations\Compose\DockerComposeUpOperation.cs" />
+    <Compile Include="Operations\DockerLoginOperation.cs" />
+    <Compile Include="Operations\DockerLogoutOperation.cs" />
     <Compile Include="Operations\DockerOperation.cs" />
+    <Compile Include="Operations\DockerExecOperation.cs" />
     <Compile Include="Operations\RunContainerOperation.cs" />
     <Compile Include="Operations\StopContainerOperation.cs" />
     <Compile Include="Operations\TagImageOperation.cs" />

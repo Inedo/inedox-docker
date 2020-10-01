@@ -35,7 +35,7 @@ namespace Inedo.Extensions.Docker.Operations
             return procExec.EscapeArg;
         }
 
-        protected async Task<ProcessOutput> ExecuteDockerAsync(IOperationExecutionContext context, string command, string arguments)
+        protected async Task<ProcessOutput> ExecuteDockerAsync(IOperationExecutionContext context, string command, string arguments, bool logOutput = false)
         {
             var fileOps = await context.Agent.GetServiceAsync<IFileOperationsExecuter>();
             await fileOps.CreateDirectoryAsync(context.WorkingDirectory);
@@ -46,8 +46,8 @@ namespace Inedo.Extensions.Docker.Operations
             var exec = await context.Agent.GetServiceAsync<IRemoteProcessExecuter>();
             using (var process = exec.CreateProcess(new RemoteProcessStartInfo { FileName = this.DockerExePath, Arguments = command + " " + arguments, WorkingDirectory = context.WorkingDirectory }))
             {
-                process.OutputDataReceived += (s, e) => write(e.Data, output);
-                process.ErrorDataReceived += (s, e) => write(e.Data, error);
+                process.OutputDataReceived += (s, e) => write(e.Data, output, logInfo: this.LogInformation);
+                process.ErrorDataReceived += (s, e) => write(e.Data, error, logError: this.LogBuildError);
 
                 process.Start();
 
@@ -56,12 +56,17 @@ namespace Inedo.Extensions.Docker.Operations
                 return new ProcessOutput(process.ExitCode.Value, output, error);
             }
 
-            void write(string text, List<string> log)
+            void write(string text, List<string> log, Action<string> logInfo = null, Action<IOperationExecutionContext, string> logError = null)
             {
                 if (!string.IsNullOrWhiteSpace(text))
                 {
                     lock (log)
                         log.Add(text);
+                    if(logOutput)
+                    {
+                        logInfo?.Invoke(text);
+                        logError?.Invoke(context, text);
+                    }
                 }
             }
         }
@@ -172,7 +177,7 @@ namespace Inedo.Extensions.Docker.Operations
             await containerManager.DeactivateContainerAsync(containerId.Name, containerId.Tag, containerId.Source);
         }
 
-        protected async Task LoginAsync(IOperationExecutionContext context, string containerSource)
+        protected async Task LoginAsync(IOperationExecutionContext context, string containerSource, bool logOutput = false)
         {
             if (string.IsNullOrEmpty(containerSource))
                 return;
@@ -187,13 +192,13 @@ namespace Inedo.Extensions.Docker.Operations
                 userpass = new UsernamePasswordCredentials { UserName = "api", Password = ((TokenCredentials)creds).Token };
 
             var escapeArg = GetEscapeArg(context);
-            var output = await this.ExecuteDockerAsync(context, "login", $"{escapeArg(source.RegistryPrefix)} -u {escapeArg(userpass.UserName)} -p {escapeArg(AH.Unprotect(userpass.Password))}");
+            var output = await this.ExecuteDockerAsync(context, "login", $"{escapeArg(source.RegistryPrefix)} -u {escapeArg(userpass.UserName)} -p {escapeArg(AH.Unprotect(userpass.Password))}", logOutput: logOutput);
             if (output.ExitCode == 0)
                 return;
 
             throw new ExecutionFailureException($"docker login returned code {output.ExitCode}:\n{string.Join("\n", output.Error)}");
         }
-        protected async Task LogoutAsync(IOperationExecutionContext context, string containerSource)
+        protected async Task LogoutAsync(IOperationExecutionContext context, string containerSource, bool logOutput = false)
         {
             if (string.IsNullOrEmpty(containerSource))
                 return;
@@ -207,7 +212,7 @@ namespace Inedo.Extensions.Docker.Operations
                 userpass = new UsernamePasswordCredentials { UserName = "api", Password = ((TokenCredentials)creds).Token };
 
             var escapeArg = GetEscapeArg(context);
-            var output = await this.ExecuteDockerAsync(context, "logout", $"{escapeArg(source.RegistryPrefix)}");
+            var output = await this.ExecuteDockerAsync(context, "logout", $"{escapeArg(source.RegistryPrefix)}", logOutput: logOutput);
             if (output.ExitCode == 0)
                 return;
 
