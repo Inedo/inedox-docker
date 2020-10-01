@@ -60,9 +60,9 @@ namespace Inedo.Extensions.Docker.Operations.Compose
             this.LogDebug($"Working directory: {workingDirectory}");
             await fileOps.CreateDirectoryAsync(workingDirectory);
 
-
+            var isYamlPathSpecified = this.ComposeFileYaml.EndsWith(".yml", StringComparison.OrdinalIgnoreCase);
             string composeFileName = null;
-            if (this.ComposeFileYaml.EndsWith(".yml", StringComparison.OrdinalIgnoreCase))
+            if (isYamlPathSpecified)
             {
                 composeFileName = context.ResolvePath(this.ComposeFileYaml, workingDirectory);
             }
@@ -95,7 +95,7 @@ namespace Inedo.Extensions.Docker.Operations.Compose
 
             try
             {
-                if (!this.ComposeFileYaml.EndsWith(".yml", StringComparison.OrdinalIgnoreCase))
+                if (!isYamlPathSpecified)
                     await fileOps.WriteAllTextAsync(composeFileName, this.ComposeFileYaml);
                
                 this.LogDebug($"Running command: {startInfo.FileName} {startInfo.Arguments}");
@@ -120,7 +120,10 @@ namespace Inedo.Extensions.Docker.Operations.Compose
             }
             finally
             {
-                await fileOps.DeleteFileAsync(composeFileName);
+                if (!isYamlPathSpecified)
+                {
+                    await fileOps.DeleteFileAsync(composeFileName);
+                }
             }
 
             // Command failed. Try to give a better error message if docker-compose isn't even installed.
