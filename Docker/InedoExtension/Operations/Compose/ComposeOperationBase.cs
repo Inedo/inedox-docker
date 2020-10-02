@@ -8,13 +8,14 @@ using Inedo.Diagnostics;
 using Inedo.Documentation;
 using Inedo.Extensibility;
 using Inedo.Extensibility.Operations;
+using Inedo.Extensions.Docker.SuggestionProviders;
 using Inedo.Web;
 
 namespace Inedo.Extensions.Docker.Operations.Compose
 {
     [DefaultProperty(nameof(ProjectName))]
     [Tag("docker-compose")]
-    public abstract class ComposeOperationBase : ExecuteOperation
+    public abstract class ComposeOperationBase : DockerOperation
     {
         protected virtual string Command => null;
 
@@ -46,13 +47,33 @@ namespace Inedo.Extensions.Docker.Operations.Compose
         [FieldEditMode(FieldEditMode.Multiline)]
         public virtual IEnumerable<string> AddArgs { get; set; }
 
-        protected Task RunDockerComposeAsync(IOperationExecutionContext context, params string[] args)
+        [Required]
+        [Category("Source")]
+        [ScriptAlias("Source")]
+        [DisplayName("Container source")]
+        [SuggestableValue(typeof(ContainerSourceSuggestionProvider))]
+        public string ContainerSource { get; set; }
+
+        protected async Task RunDockerComposeAsync(IOperationExecutionContext context, params string[] args)
         {
-            return this.RunDockerComposeAsync(context, (IEnumerable<string>)args);
+            bool hasContainerSource = !string.IsNullOrWhiteSpace(this.ContainerSource);
+
+            if (hasContainerSource)
+                await this.LoginAsync(context, this.ContainerSource);
+            try
+            {
+                await this.RunDockerComposeAsync(context, (IEnumerable<string>)args);
+            }
+            finally
+            {
+                if (hasContainerSource)
+                    await this.LogoutAsync(context, this.ContainerSource);
+            }
         }
 
         protected virtual async Task RunDockerComposeAsync(IOperationExecutionContext context, IEnumerable<string> args)
         {
+
             var fileOps = await context.Agent.TryGetServiceAsync<ILinuxFileOperationsExecuter>() ?? await context.Agent.GetServiceAsync<IFileOperationsExecuter>();
             var procExec = await context.Agent.GetServiceAsync<IRemoteProcessExecuter>();
             var workingDirectory = context.ResolvePath(string.IsNullOrWhiteSpace(this.WorkingDirectory) ? context.WorkingDirectory : this.WorkingDirectory);
