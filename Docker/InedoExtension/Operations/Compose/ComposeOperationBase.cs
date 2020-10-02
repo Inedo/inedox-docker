@@ -47,7 +47,6 @@ namespace Inedo.Extensions.Docker.Operations.Compose
         [FieldEditMode(FieldEditMode.Multiline)]
         public virtual IEnumerable<string> AddArgs { get; set; }
 
-        [Required]
         [Category("Source")]
         [ScriptAlias("Source")]
         [DisplayName("Container source")]
