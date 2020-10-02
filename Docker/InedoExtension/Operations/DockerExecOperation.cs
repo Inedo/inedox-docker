@@ -66,7 +66,7 @@ namespace Inedo.Extensions.Docker.Operations
             if (!string.IsNullOrWhiteSpace(this.AdditionalArguments))
                 args.Append($"{this.AdditionalArguments} ");
 
-            args.Append($"{escapeArg(this.ContainerName)} {escapeArg(this.Command)}");
+            args.Append($"{escapeArg(this.ContainerName)} {this.Command}");
 
 
             var argsText = args.ToString();
