@@ -41,6 +41,7 @@ namespace Inedo.Extensions.Docker.Operations
         [ScriptAlias("From")]
         [DisplayName("From")]
         [PlaceholderText("$WorkingDirectory")]
+        [FilePathEditor]
         public string SourceDirectory { get; set; }
         [Required]
         [ScriptAlias("RepositoryName")]
