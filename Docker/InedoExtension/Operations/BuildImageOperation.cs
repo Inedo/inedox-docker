@@ -12,7 +12,6 @@ using Inedo.Extensibility.SecureResources;
 using Inedo.Extensions.Docker.SuggestionProviders;
 using Inedo.Extensions.SecureResources;
 using Inedo.Web;
-using Inedo.Web.Plans.ArgumentEditors;
 
 namespace Inedo.Extensions.Docker.Operations
 {
@@ -41,7 +40,7 @@ namespace Inedo.Extensions.Docker.Operations
         [ScriptAlias("From")]
         [DisplayName("From")]
         [PlaceholderText("$WorkingDirectory")]
-        [FilePathEditor]
+        [FieldEditMode(FieldEditMode.ServerDirectoryPath)]
         public string SourceDirectory { get; set; }
         [Required]
         [ScriptAlias("RepositoryName")]
