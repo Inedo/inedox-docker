@@ -23,7 +23,6 @@ namespace Inedo.Extensions.Docker.Operations.Compose
         [DisplayName("Project name")]
         public string ProjectName { get; set; }
 
-        [Required]
         [ScriptAlias("ComposeYaml")]
         [DisplayName("Compose file (YAML)")]
         [FieldEditMode(FieldEditMode.Multiline)]
@@ -63,8 +62,6 @@ namespace Inedo.Extensions.Docker.Operations.Compose
 
             startInfo.AppendArgs(procExec, new[]
             {
-                "--file",
-                composeFileName,
                 "--project-name",
                 this.ProjectName,
                 this.Verbose ? "--verbose" : null,
@@ -75,9 +72,20 @@ namespace Inedo.Extensions.Docker.Operations.Compose
             .Concat(args ?? new string[0])
             .Where(arg => arg != null));
 
+            if (this.ComposeFileYaml != null)
+            {
+                startInfo.AppendArgs(procExec, new[] {
+                "--file",
+                composeFileName
+                });
+            }
+
             try
             {
-                await fileOps.WriteAllTextAsync(composeFileName, this.ComposeFileYaml);
+                if (this.ComposeFileYaml != null)
+                {
+                    await fileOps.WriteAllTextAsync(composeFileName, this.ComposeFileYaml);
+                }
 
                 this.LogDebug($"Working directory: {startInfo.WorkingDirectory}");
                 await fileOps.CreateDirectoryAsync(startInfo.WorkingDirectory);
@@ -103,7 +111,10 @@ namespace Inedo.Extensions.Docker.Operations.Compose
             }
             finally
             {
-                await fileOps.DeleteFileAsync(composeFileName);
+                if (this.ComposeFileYaml != null)
+                {
+                    await fileOps.DeleteFileAsync(composeFileName);
+                }
             }
 
             // Command failed. Try to give a better error message if docker-compose isn't even installed.
