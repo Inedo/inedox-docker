@@ -24,7 +24,6 @@ namespace Inedo.Extensions.Docker.Operations.Compose
         [DisplayName("Project name")]
         public string ProjectName { get; set; }
 
-        [Required]
         [ScriptAlias("ComposeYaml")]
         [DisplayName("Compose file (YAML)")]
         [Description("You can specify the path to the \"docker-compose.yaml\" or this can be the compose file contents, eg. $FileContents(docker-compose.yml) or $ConfigurationFileText(Integration, docker-compose.yaml)")]
@@ -80,18 +79,19 @@ namespace Inedo.Extensions.Docker.Operations.Compose
             this.LogDebug($"Working directory: {workingDirectory}");
             await fileOps.CreateDirectoryAsync(workingDirectory);
 
-            var isYamlPathSpecified = this.ComposeFileYaml.EndsWith(".yml", StringComparison.OrdinalIgnoreCase);
+            var hasComposeYaml = !string.IsNullOrWhiteSpace(this.ComposeFileYaml);
+            var isYamlPathSpecified = hasComposeYaml && (this.ComposeFileYaml.EndsWith(".yml", StringComparison.OrdinalIgnoreCase) || this.ComposeFileYaml.EndsWith(".yaml", StringComparison.OrdinalIgnoreCase));
+            
             string composeFileName = null;
             if (isYamlPathSpecified)
             {
                 composeFileName = context.ResolvePath(this.ComposeFileYaml, workingDirectory);
             }
-            else
+            else if(hasComposeYaml)
             {
                 await fileOps.CreateDirectoryAsync(fileOps.CombinePath(workingDirectory, "scripts"));
                 composeFileName = fileOps.CombinePath(workingDirectory, "scripts", Guid.NewGuid().ToString("N") + ".yml");
             }
-
 
             var startInfo = new RemoteProcessStartInfo
             {
@@ -101,8 +101,6 @@ namespace Inedo.Extensions.Docker.Operations.Compose
 
             startInfo.AppendArgs(procExec, new[]
             {
-                "--file",
-                composeFileName,
                 "--project-name",
                 this.ProjectName,
                 this.Verbose ? "--verbose" : null,
@@ -113,9 +111,17 @@ namespace Inedo.Extensions.Docker.Operations.Compose
             .Concat(args ?? new string[0])
             .Where(arg => arg != null));
 
+            if (hasComposeYaml)
+            {
+                startInfo.AppendArgs(procExec, new[] {
+                    "--file",
+                    composeFileName
+                });
+            }
+
             try
             {
-                if (!isYamlPathSpecified)
+                if (hasComposeYaml && !isYamlPathSpecified)
                     await fileOps.WriteAllTextAsync(composeFileName, this.ComposeFileYaml);
                
                 this.LogDebug($"Running command: {startInfo.FileName} {startInfo.Arguments}");
@@ -140,7 +146,7 @@ namespace Inedo.Extensions.Docker.Operations.Compose
             }
             finally
             {
-                if (!isYamlPathSpecified)
+                if (hasComposeYaml && !isYamlPathSpecified)
                 {
                     await fileOps.DeleteFileAsync(composeFileName);
                 }
