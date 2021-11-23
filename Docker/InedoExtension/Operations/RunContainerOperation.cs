@@ -57,6 +57,11 @@ namespace Inedo.Extensions.Docker.Operations
         [DefaultValue(true)]
         public bool RunInBackground { get; set; } = true;
 
+        [ScriptAlias("AdditionalArguments")]
+        [DisplayName("Addtional arguments")]
+        [Description("Additional arguments for the docker CLI exec command, such as --env key=value")]
+        public string AdditionalArguments { get; set; }
+
         public override async Task ExecuteAsync(IOperationExecutionContext context)
         {
             await this.LoginAsync(context, this.ContainerSource);
@@ -84,7 +89,11 @@ namespace Inedo.Extensions.Docker.Operations
                 if (!string.IsNullOrWhiteSpace(this.ContainerName))
                     args.Append($"--name {escapeArg(this.ContainerName)} ");
 
+                if (!string.IsNullOrWhiteSpace(AdditionalArguments))
+                    args.Append($"{this.AdditionalArguments} ");
+
                 args.Append(escapeArg(containerId.FullName));
+
 
                 var argsText = args.ToString();
                 this.LogDebug($"Executing docker {argsText}...");
