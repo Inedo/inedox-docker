@@ -25,7 +25,7 @@ namespace Inedo.Extensions.Docker.Operations
         [ScriptAlias("DockerfileAsset")]
         [DisplayName("Dockerfile text template")]
         [PlaceholderText("Select text template...")]
-        [SuggestableValue(typeof(TextTemplateSuggestionProvider))]
+        [SuggestableValue(typeof(DockerfileSuggestionProvider))]
         public string DockerfileTemplate { get; set; }
         [ScriptAlias("TemplateArguments")]
         [DisplayName("Addtional template arguments")]
@@ -78,10 +78,19 @@ namespace Inedo.Extensions.Docker.Operations
 
                 if (!string.IsNullOrWhiteSpace(this.DockerfileTemplate))
                 {
-                    var item = SDK.GetRaftItem(RaftItemType.TextTemplate, this.DockerfileTemplate, context);
+                    SDK.RaftItemInfo item = null;
+
+#warning Updated to use actual enum type RaftItemType.BuildFile once upgraded to SDK 2.4
+                    try
+                    {
+                        item = SDK.GetRaftItem((RaftItemType)11, this.DockerfileTemplate, context);
+                    } catch { /* Error most likely RaftItemType does not exist */ }
+
+                    if (item == null)
+                        item = SDK.GetRaftItem(RaftItemType.TextTemplate, this.DockerfileTemplate, context);
                     if (item == null)
                     {
-                        this.LogError($"Text template \"{this.DockerfileTemplate}\" not found.");
+                        this.LogError($"Dockerfile \"{this.DockerfileTemplate}\" not found.");
                         return;
                     }
 
