@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Security;
 using System.Threading.Tasks;
 using Inedo.Agents;
 using Inedo.Diagnostics;
@@ -188,8 +189,18 @@ namespace Inedo.Extensions.Docker.Operations
                 return;
 
             var userpass = source.GetCredentials((ICredentialResolutionContext)context) as UsernamePasswordCredentials;
-            if (userpass == null)
-                userpass = new UsernamePasswordCredentials { UserName = "api", Password = ((TokenCredentials)creds).Token };
+            if (userpass == null && creds is TokenCredentials tokenCreds)
+                userpass = new UsernamePasswordCredentials { UserName = "api", Password = tokenCreds.Token };
+            else if(userpass == null && creds is ProGetServiceCredentials progetCreds)
+            {
+                userpass = string.IsNullOrWhiteSpace(progetCreds.UserName)
+                    ? new UsernamePasswordCredentials { UserName = "api", Password = AH.CreateSecureString(progetCreds.APIKey) }
+                    : new UsernamePasswordCredentials { UserName = progetCreds.UserName, Password = AH.CreateSecureString(progetCreds.Password) };
+            }
+            else
+            {
+                throw new InvalidOperationException($"Invalid credentials type {creds.GetType()}");
+            }
 
             var escapeArg = GetEscapeArg(context);
             var output = await this.ExecuteDockerAsync(context, "login", $"{escapeArg(source.RegistryPrefix)} -u {escapeArg(userpass.UserName)} -p {escapeArg(AH.Unprotect(userpass.Password))}", logOutput: logOutput);
