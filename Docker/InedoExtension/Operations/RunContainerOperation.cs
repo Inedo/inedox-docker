@@ -28,24 +28,29 @@ namespace Inedo.Extensions.Docker.Operations
         [DisplayName("Container source")]
         [SuggestableValue(typeof(ContainerSourceSuggestionProvider))]
         public string ContainerSource { get; set; }
-        [Required]
+
         [ScriptAlias("RepositoryName")]
         [ScriptAlias("Repository")]
         [DisplayName("Repository name")]
+        [PlaceholderText("Use from Container Source")]
+        [Category("Advanced")]
         public string RepositoryName { get; set; }
+
         [Required]
         [ScriptAlias("Tag")]
         public string Tag { get; set; }
+
         [Required]
         [DisplayName("Container Configuration")]
         [ScriptAlias("ConfigFileName")]
         [SuggestableValue(typeof(ConfigurationSuggestionProvider))]
         public string ConfigFileName { get; set; }
-        [Required]
+
         [DisplayName("Container Runtime")]
         [ScriptAlias("ConfigFileInstanceName")]
         [SuggestableValue(typeof(ConfigurationInstanceSuggestionProvider))]
         public string ConfigInstanceName { get; set; }
+
         [DisplayName("Container name")]
         [ScriptAlias("ContainerName")]
         [ScriptAlias("Container")]
@@ -68,19 +73,20 @@ namespace Inedo.Extensions.Docker.Operations
             try
             {
                 var containerSource = (ContainerSource)SecureResource.Create(this.ContainerSource, (IResourceResolutionContext)context);
-                var containerId = new ContainerId(this.ContainerSource, containerSource?.RegistryPrefix, this.RepositoryName, this.Tag);
+                var containerId = new ContainerId(this.ContainerSource, containerSource?.RegistryPrefix, AH.CoalesceString(this.RepositoryName, containerSource?.RepositoryName), this.Tag);
                 if (!string.IsNullOrEmpty(this.ContainerSource))
                     containerId = await this.PullAsync(context, containerId);
 
                 var containerConfigArgs = await this.GetContainerConfigText(context);
-                if (containerConfigArgs == null)
-                    return;
 
                 var escapeArg = GetEscapeArg(context);
 
                 var args = new StringBuilder("run ");
-                args.Append(containerConfigArgs);
-                args.Append(' ');
+                if (containerConfigArgs != null)
+                {
+                    args.Append(containerConfigArgs);
+                    args.Append(' ');
+                }
                 if (this.RunInBackground)
                     args.Append("-d ");
                 else if (string.IsNullOrWhiteSpace(this.ContainerName))
@@ -135,6 +141,9 @@ namespace Inedo.Extensions.Docker.Operations
 
         private async Task<string> GetContainerConfigText(IOperationExecutionContext context)
         {
+            if (string.IsNullOrWhiteSpace(this.ConfigFileName))
+                return null;
+
             var deployer = await context.TryGetServiceAsync<IConfigurationFileDeployer>();
             if (deployer == null)
                 throw new NotSupportedException("Configuration files are not supported in this context.");

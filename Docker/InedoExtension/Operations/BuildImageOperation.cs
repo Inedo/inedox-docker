@@ -21,7 +21,6 @@ namespace Inedo.Extensions.Docker.Operations
     [Description("Builds a Docker image using a text template and pushes it to a specified container source.")]
     public sealed class BuildImageOperation : DockerOperation
     {
-        [Required]
         [ScriptAlias("DockerfileAsset")]
         [DisplayName("Dockerfile text template")]
         [PlaceholderText("Select text template...")]
@@ -42,10 +41,11 @@ namespace Inedo.Extensions.Docker.Operations
         [PlaceholderText("$WorkingDirectory")]
         [FieldEditMode(FieldEditMode.ServerDirectoryPath)]
         public string SourceDirectory { get; set; }
-        [Required]
         [ScriptAlias("RepositoryName")]
         [ScriptAlias("Repository")]
         [DisplayName("Repository name")]
+        [PlaceholderText("Use from Container Source")]
+        [Category("Advanced")]
         public string RepositoryName { get; set; }
         [Required]
         [ScriptAlias("Tag")]
@@ -63,6 +63,13 @@ namespace Inedo.Extensions.Docker.Operations
         [ScriptAlias("RemoveAfterPush")]
         [DisplayName("Remove after pushing")]
         public bool RemoveAfterPush { get; set; }
+        [Category("Advanced")]
+        [ScriptAlias("DockerfileName")]
+        [DisplayName("Dockerfiel Name")]
+        [PlaceholderText("Dockerfile")]
+        [DefaultValue("Dockerfile")]
+        [Description("The name of the Dockerfile to use when building your image.")]
+        public string DockerfileName { get; set; }
 
         public override async Task ExecuteAsync(IOperationExecutionContext context)
         {
@@ -74,7 +81,7 @@ namespace Inedo.Extensions.Docker.Operations
                 await fileOps.CreateDirectoryAsync(context.WorkingDirectory);
                 var sourcePath = context.ResolvePath(this.SourceDirectory);
                 await fileOps.CreateDirectoryAsync(sourcePath);
-                var dockerfilePath = fileOps.CombinePath(sourcePath, "Dockerfile");
+                var dockerfilePath = fileOps.CombinePath(sourcePath, this.DockerfileName);
 
                 if (!string.IsNullOrWhiteSpace(this.DockerfileTemplate))
                 {
@@ -100,10 +107,10 @@ namespace Inedo.Extensions.Docker.Operations
                 }
 
                 var containerSource = (ContainerSource)SecureResource.Create(this.ContainerSource, (IResourceResolutionContext)context);
-                var containerId = new ContainerId(this.ContainerSource, containerSource?.RegistryPrefix, this.RepositoryName, this.Tag);
+                var containerId = new ContainerId(this.ContainerSource, containerSource?.RegistryPrefix, AH.CoalesceString(this.RepositoryName, containerSource?.RepositoryName), this.Tag);
 
                 var escapeArg = GetEscapeArg(context);
-                var args = $"build --force-rm --progress=plain --tag={escapeArg(containerId.FullName)} {this.AdditionalArguments} {escapeArg(sourcePath)}";
+                var args = $"build {(this.DockerfileName != "Dockerfile" ? $"--f {this.DockerfileName}" : string.Empty)} --force-rm --progress=plain --tag={escapeArg(containerId.FullName)} {this.AdditionalArguments} {escapeArg(sourcePath)}";
                 this.LogDebug("Executing docker " + args);
 
                 var startInfo = new RemoteProcessStartInfo
