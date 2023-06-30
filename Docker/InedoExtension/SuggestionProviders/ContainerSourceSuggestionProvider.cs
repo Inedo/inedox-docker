@@ -12,7 +12,7 @@ namespace Inedo.Extensions.Docker.SuggestionProviders
         public Task<IEnumerable<string>> GetSuggestionsAsync(IComponentConfiguration config)
         {
             return Task.FromResult(from resource in SDK.GetSecureResources()
-                                   where resource.InstanceType == typeof(ContainerSource)
+                                   where resource.InstanceType == typeof(DockerRepository)
                                    select resource.Name);
         }
     }

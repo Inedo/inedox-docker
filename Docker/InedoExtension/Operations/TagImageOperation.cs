@@ -4,6 +4,7 @@ using Inedo.Agents;
 using Inedo.Diagnostics;
 using Inedo.Documentation;
 using Inedo.Extensibility;
+using Inedo.Extensibility.Credentials;
 using Inedo.Extensibility.Operations;
 using Inedo.Extensibility.SecureResources;
 using Inedo.Extensions.Docker.SuggestionProviders;
@@ -18,33 +19,32 @@ namespace Inedo.Extensions.Docker.Operations
     [Description("Applies a new tag to a Docker image in the specified container source.")]
     public sealed class TagImageOperation : DockerOperation
     {
-        [Required]
-        [Category("Source")]
+        [Category("Legacy")]
         [ScriptAlias("RepositoryName")]
-        [ScriptAlias("Repository")]
-        [DisplayName("Repository name")]
+        [DisplayName("Source Repository name")]
         public string RepositoryName { get; set; }
         [Required]
         [Category("Source")]
         [ScriptAlias("OriginalTag")]
         [DisplayName("Original tag")]
         public string OriginalTag { get; set; }
-        [Required]
         [Category("Source")]
+        [ScriptAlias("Repository")]
         [ScriptAlias("Source")]
-        [DisplayName("Container source")]
+        [DisplayName("Repository")]
         [SuggestableValue(typeof(ContainerSourceSuggestionProvider))]
-        public string ContainerSource { get; set; }
+        [DefaultValue("$DockerRepository")]
+        public string DockerRepository { get; set; }
+
         [Category("Source")]
         [ScriptAlias("DeactivateOriginalTag")]
         [DisplayName("Remove from build")]
         [DefaultValue(true)]
         public bool DeactivateOriginalTag { get; set; } = true;
 
-        [Category("Destination")]
+        [Category("Legacy")]
         [ScriptAlias("NewRepositoryName")]
-        [ScriptAlias("NewRepository")]
-        [DisplayName("Repository name")]
+        [DisplayName("New Repository name")]
         [PlaceholderText("(same as original repository name)")]
         public string NewRepositoryName { get; set; }
         [Required]
@@ -53,11 +53,12 @@ namespace Inedo.Extensions.Docker.Operations
         [DisplayName("New tag")]
         public string NewTag { get; set; }
         [Category("Destination")]
+        [ScriptAlias("NewRepository")]
         [ScriptAlias("NewSource")]
-        [DisplayName("New container source")]
+        [DisplayName("New Repository")]
         [SuggestableValue(typeof(ContainerSourceSuggestionProvider))]
         [PlaceholderText("(same as original container source)")]
-        public string NewContainerSource { get; set; }
+        public string NewDockerRepository { get; set; }
         [Category("Destination")]
         [ScriptAlias("AttachToBuild")]
         [DisplayName("Attach to build")]
@@ -66,27 +67,29 @@ namespace Inedo.Extensions.Docker.Operations
 
         public override async Task ExecuteAsync(IOperationExecutionContext context)
         {
-            await this.LoginAsync(context, this.ContainerSource);
+            await this.LoginAsync(context, this.DockerRepository);
             try
             {
                 var fileOps = await context.Agent.GetServiceAsync<IFileOperationsExecuter>();
                 await fileOps.CreateDirectoryAsync(context.WorkingDirectory);
 
                 this.NewRepositoryName = AH.CoalesceString(this.NewRepositoryName, this.RepositoryName);
-                if (string.IsNullOrWhiteSpace(this.NewContainerSource))
+                if (string.IsNullOrWhiteSpace(this.NewDockerRepository))
                 {
-                    if (this.NewContainerSource == null)
-                        this.NewContainerSource = this.ContainerSource;
+                    if (this.NewDockerRepository == null)
+                        this.NewDockerRepository = this.DockerRepository;
                     else
-                        this.NewContainerSource = null;
+                        this.NewDockerRepository = null;
                 }
-                var containerSource = (ContainerSource)SecureResource.Create(this.ContainerSource, (IResourceResolutionContext)context);
-                var oldContainerId = new ContainerId(this.ContainerSource, containerSource?.RegistryPrefix, this.RepositoryName, this.OriginalTag);
+                var containerSource = (DockerRepository)SecureResource.Create(this.DockerRepository, (IResourceResolutionContext)context);
+                containerSource = VerifyRepository(containerSource, this.RepositoryName);
+                var oldContainerId = new ContainerId(this.DockerRepository, containerSource.GetFullRepository((ICredentialResolutionContext)context), this.OriginalTag);
 
-                var newContainerSource = (ContainerSource)SecureResource.Create(this.NewContainerSource, (IResourceResolutionContext)context);
-                var newContainerId = new ContainerId(this.NewContainerSource, newContainerSource?.RegistryPrefix, this.NewRepositoryName, this.NewTag);
+                var newContainerSource = (DockerRepository)SecureResource.Create(this.NewDockerRepository, (IResourceResolutionContext)context);
+                newContainerSource = VerifyRepository(newContainerSource, this.NewRepositoryName);
+                var newContainerId = new ContainerId(this.NewDockerRepository, newContainerSource.GetFullRepository((ICredentialResolutionContext)context), this.NewTag);
 
-                if (!string.IsNullOrEmpty(this.ContainerSource))
+                if (!string.IsNullOrEmpty(this.DockerRepository))
                     oldContainerId = await this.PullAsync(context, oldContainerId);
                 else
                     oldContainerId = oldContainerId.WithDigest(await this.ExecuteGetDigest(context, oldContainerId.FullName));
@@ -109,7 +112,7 @@ namespace Inedo.Extensions.Docker.Operations
                     return;
                 }
 
-                if (!string.IsNullOrEmpty(this.NewContainerSource))
+                if (!string.IsNullOrEmpty(this.NewDockerRepository))
                 {
                     await this.PushAsync(context, newContainerId);
                 }
@@ -122,7 +125,7 @@ namespace Inedo.Extensions.Docker.Operations
             }
             finally
             {
-                await this.LogoutAsync(context, this.ContainerSource);
+                await this.LogoutAsync(context, this.DockerRepository);
             }
         }
 
@@ -131,9 +134,9 @@ namespace Inedo.Extensions.Docker.Operations
             return new ExtendedRichDescription(
                 new RichDescription(
                     "Tag ",
-                    new Hilite(config[nameof(RepositoryName)] + ":" + config[nameof(OriginalTag)]),
+                    new Hilite(config[nameof(DockerRepository)] + ":" + config[nameof(OriginalTag)]),
                     " as ",
-                     new Hilite(AH.CoalesceString(config[nameof(RepositoryName)], config[nameof(NewRepositoryName)]) + ":" + config[nameof(NewTag)])
+                     new Hilite(AH.CoalesceString(config[nameof(DockerRepository)], config[nameof(NewDockerRepository)]) + ":" + config[nameof(NewTag)])
                 )
             );
         }

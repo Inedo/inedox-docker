@@ -6,6 +6,7 @@ using Inedo.Diagnostics;
 using Inedo.Documentation;
 using Inedo.ExecutionEngine;
 using Inedo.Extensibility;
+using Inedo.Extensibility.Credentials;
 using Inedo.Extensibility.Operations;
 using Inedo.Extensibility.RaftRepositories;
 using Inedo.Extensibility.SecureResources;
@@ -31,38 +32,37 @@ namespace Inedo.Extensions.Docker.Operations
         [FieldEditMode(FieldEditMode.Multiline)]
         [PlaceholderText("eg. %(name: value, ...)")]
         public IDictionary<string, RuntimeValue> TemplateArguments { get; set; }
-        [Required]
+        [ScriptAlias("Repository")]
         [ScriptAlias("Source")]
-        [DisplayName("Container registry source")]
+        [DisplayName("Repository")]
         [SuggestableValue(typeof(ContainerSourceSuggestionProvider))]
-        public string ContainerSource { get; set; }
+        [DefaultValue("$DockerRepository")]
+        public string DockerRepository { get; set; }
         [ScriptAlias("From")]
         [DisplayName("From")]
         [PlaceholderText("$WorkingDirectory")]
         [FieldEditMode(FieldEditMode.ServerDirectoryPath)]
         public string SourceDirectory { get; set; }
-        [ScriptAlias("RepositoryName")]
-        [ScriptAlias("Repository")]
-        [DisplayName("Repository name")]
-        [PlaceholderText("Use from Container Source")]
-        [Category("Advanced")]
-        public string RepositoryName { get; set; }
         [Required]
         [ScriptAlias("Tag")]
         [PlaceholderText("eg. $ReleaseNumber-ci.$BuildNumber")]
         public string Tag { get; set; }
+
         [ScriptAlias("AdditionalArguments")]
         [DisplayName("Addtional arguments")]
         [Description("Additional arguments for the docker CLI build command, such as --build-arg=ARG_NAME=value")]
         public string AdditionalArguments { get; set; }
+
         [ScriptAlias("AttachToBuild")]
         [DisplayName("Attach to build")]
         [DefaultValue(true)]
         public bool AttachToBuild { get; set; } = true;
+
         [Category("Advanced")]
         [ScriptAlias("RemoveAfterPush")]
         [DisplayName("Remove after pushing")]
         public bool RemoveAfterPush { get; set; }
+
         [Category("Advanced")]
         [ScriptAlias("DockerfileName")]
         [DisplayName("Dockerfiel Name")]
@@ -71,9 +71,15 @@ namespace Inedo.Extensions.Docker.Operations
         [Description("The name of the Dockerfile to use when building your image.")]
         public string DockerfileName { get; set; }
 
+        [ScriptAlias("RepositoryName")]
+        [DisplayName("Repository name")]
+        [PlaceholderText("Use from Container Source")]
+        [Category("Legacy")]
+        public string RepositoryName { get; set; }
+
         public override async Task ExecuteAsync(IOperationExecutionContext context)
         {
-            await this.LoginAsync(context, this.ContainerSource);
+            await this.LoginAsync(context, this.DockerRepository);
             try
             {
                 var procExec = await context.Agent.GetServiceAsync<IRemoteProcessExecuter>();
@@ -106,8 +112,10 @@ namespace Inedo.Extensions.Docker.Operations
                     await fileOps.WriteAllTextAsync(dockerfilePath, dockerfileText, InedoLib.UTF8Encoding);
                 }
 
-                var containerSource = (ContainerSource)SecureResource.Create(this.ContainerSource, (IResourceResolutionContext)context);
-                var containerId = new ContainerId(this.ContainerSource, containerSource?.RegistryPrefix, AH.CoalesceString(this.RepositoryName, containerSource?.RepositoryName), this.Tag);
+                var containerSource = (DockerRepository)SecureResource.Create(this.DockerRepository, (IResourceResolutionContext)context);
+                containerSource = VerifyRepository(containerSource, this.RepositoryName);
+
+                var containerId = new ContainerId(this.DockerRepository, containerSource.GetFullRepository((ICredentialResolutionContext)context), this.Tag);
 
                 var escapeArg = GetEscapeArg(context);
                 var args = $"build {(this.DockerfileName != "Dockerfile" ? $"--f {this.DockerfileName}" : string.Empty)} --force-rm --progress=plain --tag={escapeArg(containerId.FullName)} {this.AdditionalArguments} {escapeArg(sourcePath)}";
@@ -138,7 +146,7 @@ namespace Inedo.Extensions.Docker.Operations
                 var digest = await this.ExecuteGetDigest(context, containerId.FullName);
                 containerId = containerId.WithDigest(digest);
 
-                if (!string.IsNullOrEmpty(this.ContainerSource))
+                if (!string.IsNullOrEmpty(this.DockerRepository))
                 {
                     await this.PushAsync(context, containerId);
 
@@ -154,7 +162,7 @@ namespace Inedo.Extensions.Docker.Operations
             }
             finally
             {
-                await this.LogoutAsync(context, this.ContainerSource);
+                await this.LogoutAsync(context, this.DockerRepository);
             }
         }
 
@@ -163,7 +171,7 @@ namespace Inedo.Extensions.Docker.Operations
             return new ExtendedRichDescription(
                 new RichDescription(
                     "Build ",
-                    new Hilite(config[nameof(RepositoryName)] + ":" + config[nameof(Tag)]),
+                    new Hilite(config[nameof(DockerRepository)] + ":" + config[nameof(Tag)]),
                     " Docker image"
                 ),
                 new RichDescription(
