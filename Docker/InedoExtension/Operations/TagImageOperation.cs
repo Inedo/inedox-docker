@@ -83,11 +83,11 @@ namespace Inedo.Extensions.Docker.Operations
                 }
                 var containerSource = (DockerRepository)SecureResource.Create(this.DockerRepository, (IResourceResolutionContext)context);
                 containerSource = VerifyRepository(containerSource, this.RepositoryName);
-                var oldContainerId = new ContainerId(this.DockerRepository, containerSource.GetFullRepository((ICredentialResolutionContext)context), this.OriginalTag);
+                var oldContainerId = new ContainerId(this.DockerRepository, containerSource.GetRepository((ICredentialResolutionContext)context), this.OriginalTag);
 
                 var newContainerSource = (DockerRepository)SecureResource.Create(this.NewDockerRepository, (IResourceResolutionContext)context);
                 newContainerSource = VerifyRepository(newContainerSource, this.NewRepositoryName);
-                var newContainerId = new ContainerId(this.NewDockerRepository, newContainerSource.GetFullRepository((ICredentialResolutionContext)context), this.NewTag);
+                var newContainerId = new ContainerId(this.NewDockerRepository, newContainerSource.GetRepository((ICredentialResolutionContext)context), this.NewTag);
 
                 if (!string.IsNullOrEmpty(this.DockerRepository))
                     oldContainerId = await this.PullAsync(context, oldContainerId);

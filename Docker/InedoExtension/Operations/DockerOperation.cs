@@ -196,15 +196,12 @@ namespace Inedo.Extensions.Docker.Operations
                 return;
 
             var source = (DockerRepository)SecureResource.Create(containerSource, (IResourceResolutionContext)context);
-            var creds = source.GetCredentials((ICredentialResolutionContext)context);
-            if (creds == null)
-                return;
 
-            var userpass = source.GetCredentials((ICredentialResolutionContext)context) as IUsernamePassword;
+            var userpass = source.GetDockerCredentials((ICredentialResolutionContext)context);
             if (userpass == null)
                 return;
             
-            var repositoryParts = source.GetFullRepository((ICredentialResolutionContext)context).Split('/');
+            var repositoryParts = source.GetRepository((ICredentialResolutionContext)context).Split('/');
             if (repositoryParts.Length < 2)
                 return;
 
@@ -220,15 +217,12 @@ namespace Inedo.Extensions.Docker.Operations
             if (string.IsNullOrEmpty(containerSource))
                 return;
             var source = (DockerRepository)SecureResource.Create(containerSource, (IResourceResolutionContext)context);
-            var creds = source.GetCredentials((ICredentialResolutionContext)context);
-            if (creds == null)
-                return;
 
-            var userpass = source.GetCredentials((ICredentialResolutionContext)context) as IUsernamePassword;
+            var userpass = source.GetDockerCredentials((ICredentialResolutionContext)context);
             if (userpass == null)
                 return;
 
-            var repositoryParts = source.GetFullRepository((ICredentialResolutionContext)context).Split('/');
+            var repositoryParts = source.GetRepository((ICredentialResolutionContext)context).Split('/');
             if (repositoryParts.Length < 2)
                 return;
 

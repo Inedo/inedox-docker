@@ -107,7 +107,7 @@ namespace Inedo.Extensions.Docker.Operations
 
                 var baseContainerSource = (DockerRepository)SecureResource.Create(this.BaseContainerSource, (IResourceResolutionContext)context);
                 baseContainerSource = VerifyRepository(baseContainerSource, this.BaseRepositoryName);
-                var baseId = new ContainerId(this.BaseContainerSource, baseContainerSource.GetFullRepository((ICredentialResolutionContext)context), this.BaseTag);
+                var baseId = new ContainerId(this.BaseContainerSource, baseContainerSource.GetRepository((ICredentialResolutionContext)context), this.BaseTag);
 
                 if (!string.IsNullOrEmpty(this.DockerRepository))
                     baseId = await this.PullAsync(context, baseId);
@@ -142,7 +142,7 @@ namespace Inedo.Extensions.Docker.Operations
 
                 var containerSource = (DockerRepository)SecureResource.Create(this.DockerRepository, (IResourceResolutionContext)context);
                 containerSource = VerifyRepository(containerSource, this.RepositoryName);
-                var containerId = new ContainerId(this.DockerRepository, containerSource.GetFullRepository((ICredentialResolutionContext)context), this.Tag);
+                var containerId = new ContainerId(this.DockerRepository, containerSource.GetRepository((ICredentialResolutionContext)context), this.Tag);
 
                 var escapeArg = GetEscapeArg(context);
 

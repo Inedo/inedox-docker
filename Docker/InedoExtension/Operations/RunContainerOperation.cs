@@ -74,7 +74,7 @@ namespace Inedo.Extensions.Docker.Operations
             {
                 var containerSource = (DockerRepository)SecureResource.Create(this.DockerRepository, (IResourceResolutionContext)context);
                 containerSource = VerifyRepository(containerSource, this.RepositoryName);
-                var containerId = new ContainerId(this.DockerRepository, containerSource.GetFullRepository((ICredentialResolutionContext)context), this.Tag);
+                var containerId = new ContainerId(this.DockerRepository, containerSource.GetRepository((ICredentialResolutionContext)context), this.Tag);
                 if (!string.IsNullOrEmpty(this.DockerRepository))
                     containerId = await this.PullAsync(context, containerId);
 

@@ -115,7 +115,7 @@ namespace Inedo.Extensions.Docker.Operations
                 var containerSource = (DockerRepository)SecureResource.Create(this.DockerRepository, (IResourceResolutionContext)context);
                 containerSource = VerifyRepository(containerSource, this.RepositoryName);
 
-                var containerId = new ContainerId(this.DockerRepository, containerSource.GetFullRepository((ICredentialResolutionContext)context), this.Tag);
+                var containerId = new ContainerId(this.DockerRepository, containerSource.GetRepository((ICredentialResolutionContext)context), this.Tag);
 
                 var escapeArg = GetEscapeArg(context);
                 var args = $"build {(this.DockerfileName != "Dockerfile" ? $"--f {this.DockerfileName}" : string.Empty)} --force-rm --progress=plain --tag={escapeArg(containerId.FullName)} {this.AdditionalArguments} {escapeArg(sourcePath)}";

@@ -11,6 +11,7 @@ using static Inedo.Extensions.Docker.Operations.DockerOperation;
 
 namespace Inedo.Extensions.Docker.VariableFunctions
 {
+    [Undisclosed]
     [ScriptAlias("ContainerImage")]
     [Description("")]
     [ExtensionConfigurationVariable(Type = ExpectedValueDataType.String)]
@@ -38,7 +39,7 @@ namespace Inedo.Extensions.Docker.VariableFunctions
         {
             var containerSource = (DockerRepository)SecureResource.Create(this.DockerRepository, (IResourceResolutionContext)context);
             containerSource = this.VerifyRepository(containerSource, this.RepositoryName);
-            var containerId = new ContainerId(this.DockerRepository, containerSource.GetFullRepository((ICredentialResolutionContext)context), this.Tag);
+            var containerId = new ContainerId(this.DockerRepository, containerSource.GetRepository((ICredentialResolutionContext)context), this.Tag);
             return containerId.FullName;
         }
         private DockerRepository VerifyRepository(DockerRepository containerSource, string repositoryName)
