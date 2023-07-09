@@ -1,19 +1,17 @@
-﻿using System;
-using System.ComponentModel;
+﻿using System.ComponentModel;
 using System.IO;
+using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
-using Inedo.Agents;
-using Inedo.Diagnostics;
 using Inedo.Documentation;
+using Inedo.ExecutionEngine.Executer;
 using Inedo.Extensibility;
-using Inedo.Extensibility.Credentials;
 using Inedo.Extensibility.Operations;
-using Inedo.Extensibility.SecureResources;
 using Inedo.Extensions.Docker.SuggestionProviders;
-using Inedo.Extensions.SecureResources;
 using Inedo.Web;
+
+#nullable enable
 
 namespace Inedo.Extensions.Docker.Operations
 {
@@ -24,101 +22,104 @@ namespace Inedo.Extensions.Docker.Operations
     public sealed class RunContainerOperation : DockerOperation
     {
         [ScriptAlias("Repository")]
-        [Category("Source")]
-        [ScriptAlias("Source")]
+        [ScriptAlias("Source", Obsolete = true)]
         [DisplayName("Repository")]
-        [SuggestableValue(typeof(ContainerSourceSuggestionProvider))]
+        [SuggestableValue(typeof(RepositoryRresourceSuggestionProvider))]
         [DefaultValue("$DockerRepository")]
-        public string DockerRepository { get; set; }
-
-        [ScriptAlias("RepositoryName")]
-        [DisplayName("Repository name")]
-        [Category("Legacy")]
-        public string RepositoryName { get; set; }
-
-        [Required]
+        public string? RepositoryResourceName { get; set; }
         [ScriptAlias("Tag")]
-        public string Tag { get; set; }
-
+        [DefaultValue("$DockerTag")]
+        public string? Tag { get; set; }
         [Required]
-        [DisplayName("Container Configuration")]
-        [ScriptAlias("ConfigFileName")]
+        [DisplayName("Dockerstart file")]
+        [ScriptAlias("DockerstartFile")]
+        [ScriptAlias("ConfigFileName", Obsolete = true)]
         [SuggestableValue(typeof(ConfigurationSuggestionProvider))]
-        public string ConfigFileName { get; set; }
-
-        [DisplayName("Container Runtime")]
-        [ScriptAlias("ConfigFileInstanceName")]
+        [DefaultValue("Dockerstart")]
+        public string? DockerstartFileName { get; set; }
+        [DisplayName("Dockerstart instance")]
+        [ScriptAlias("DockerstartFileInstance")]
+        [ScriptAlias("ConfigFileInstanceName", Obsolete = true)]
         [SuggestableValue(typeof(ConfigurationInstanceSuggestionProvider))]
-        public string ConfigInstanceName { get; set; }
+        [DefaultValue("$PipelineStageName")]
+        public string? DockerstartFileInstance { get; set; }
 
+        [Category("Legacy")]
+        [ScriptAlias("RepositoryName")]
+        [DisplayName("Override repository name")]
+        [PlaceholderText("Do not override repository")]
+        public string? LegacyRepositoryName { get; set; }
+
+        [Category("Advanced")]
         [DisplayName("Container name")]
         [ScriptAlias("ContainerName")]
-        [ScriptAlias("Container")]
-        [PlaceholderText("auto")]
-        public string ContainerName { get; set; }
-
+        [ScriptAlias("Container", Obsolete = true)]
+        [PlaceholderText("use repository name")]
+        public string? ContainerName { get; set; }
+        [Category("Advanced")]
         [DisplayName("Run in background")]
         [ScriptAlias("RunInBackground")]
         [DefaultValue(true)]
         public bool RunInBackground { get; set; } = true;
-
+        [Category("Advanced")]
         [ScriptAlias("AdditionalArguments")]
         [DisplayName("Addtional arguments")]
         [Description("Additional arguments for the docker CLI exec command, such as --env key=value")]
-        public string AdditionalArguments { get; set; }
+        public string? AdditionalArguments { get; set; }
 
         public override async Task ExecuteAsync(IOperationExecutionContext context)
         {
-            await this.LoginAsync(context, this.DockerRepository);
+            if (string.IsNullOrEmpty(this.RepositoryResourceName))
+                throw new ExecutionFailureException($"A RepositoryResourceName was not specified.");
+            if (string.IsNullOrEmpty(this.Tag))
+                throw new ExecutionFailureException($"A Tag was not specified.");
+            if (string.IsNullOrEmpty(this.DockerstartFileName))
+                throw new ExecutionFailureException($"A DockerstartFileName was not specified.");
+            if (string.IsNullOrEmpty(this.DockerstartFileInstance))
+                throw new ExecutionFailureException($"A DockerstartFileInstance was not specified.");
+
+            var repoResource = this.CreateRepository(context, this.RepositoryResourceName, this.LegacyRepositoryName);
+            var repository = repoResource.GetRepository(context);
+            if (string.IsNullOrEmpty(repository))
+                throw new ExecutionFailureException($"Docker repository \"{this.RepositoryResourceName}\" has an unexpected name.");
+
+            if (string.IsNullOrEmpty(this.ContainerName))
+                this.ContainerName = repository.Split('/').Last();
+
+            var dockerstartText = await getDockerstartTextAsync();
+
+            var repositoryAndTag = $"{repository}:{this.Tag}";
+
+            var client = await DockerClientEx.CreateAsync(this, context);
+            await client.LoginAsync(repoResource);
             try
             {
-                var containerSource = (DockerRepository)SecureResource.Create(this.DockerRepository, (IResourceResolutionContext)context);
-                containerSource = VerifyRepository(containerSource, this.RepositoryName);
-                var containerId = new ContainerId(this.DockerRepository, containerSource.GetRepository((ICredentialResolutionContext)context), this.Tag);
-                if (!string.IsNullOrEmpty(this.DockerRepository))
-                    containerId = await this.PullAsync(context, containerId);
+                await client.DockerAsync($"pull {client.EscapeArg(repositoryAndTag)}");
 
-                var containerConfigArgs = await this.GetContainerConfigText(context);
-
-                var escapeArg = GetEscapeArg(context);
-
-                var args = new StringBuilder("run ");
-                if (containerConfigArgs != null)
-                {
-                    args.Append(containerConfigArgs);
-                    args.Append(' ');
-                }
+                var runArgs = new StringBuilder($"run {dockerstartText} --rm --name {client.EscapeArg(this.ContainerName)}");
                 if (this.RunInBackground)
-                    args.Append("-d ");
-                else if (string.IsNullOrWhiteSpace(this.ContainerName))
-                    args.Append("--rm ");
-
-                if (!string.IsNullOrWhiteSpace(this.ContainerName))
-                    args.Append($"--name {escapeArg(this.ContainerName)} ");
-
+                    runArgs.Append(" -d");
                 if (!string.IsNullOrWhiteSpace(AdditionalArguments))
-                    args.Append($"{this.AdditionalArguments} ");
+                    runArgs.Append($" {this.AdditionalArguments} ");
+                runArgs.Append($" {client.EscapeArg(repositoryAndTag)}");
 
-                args.Append(escapeArg(containerId.FullName));
-
-
-                var argsText = args.ToString();
-                this.LogDebug($"Executing docker {argsText}...");
-
-                int result = await this.ExecuteCommandLineAsync(
-                    context,
-                    new RemoteProcessStartInfo
-                    {
-                        FileName = this.DockerExePath,
-                        Arguments = argsText
-                    }
-                );
-
-                this.Log(result == 0 ? MessageLevel.Debug : MessageLevel.Error, "Docker exited with code " + result);
+                await client.DockerAsync(runArgs.ToString());
             }
             finally
             {
-                await this.LogoutAsync(context, this.DockerRepository);
+                await client.LogoutAsync();
+            }
+
+            async Task<string> getDockerstartTextAsync()
+            {
+                var deployer = (await context.TryGetServiceAsync<IConfigurationFileDeployer>())
+                    ?? throw new ExecutionFailureException("Configuration files are not supported in this context.");
+
+                using var writer = new StringWriter();
+                if (!await deployer.WriteAsync(writer, this.DockerstartFileName, this.DockerstartFileInstance, this))
+                    throw new ExecutionFailureException("Error reading Dockerstart configuration file.");
+
+                return Regex.Replace(writer.ToString(), @"\r?\n", " ");
             }
         }
 
@@ -127,35 +128,17 @@ namespace Inedo.Extensions.Docker.Operations
             return new ExtendedRichDescription(
                 new RichDescription(
                     "Run ",
-                    new Hilite(config[nameof(DockerRepository)] + ":" + config[nameof(Tag)]),
+                    new Hilite(config[nameof(RepositoryResourceName)] + ":" + config[nameof(Tag)]),
                     " Docker image"
                 ),
                 new RichDescription(
                     "using ",
-                    new Hilite(config[nameof(ConfigInstanceName)]),
+                    new Hilite(config[nameof(DockerstartFileInstance)]),
                     " instance of ",
-                    new Hilite(config[nameof(ConfigFileName)]),
-                    " configuration file"
+                    new Hilite(config[nameof(DockerstartFileName)]),
+                    " Dockerstart file"
                 )
             );
-        }
-
-        private async Task<string> GetContainerConfigText(IOperationExecutionContext context)
-        {
-            if (string.IsNullOrWhiteSpace(this.ConfigFileName))
-                return null;
-
-            var deployer = await context.TryGetServiceAsync<IConfigurationFileDeployer>();
-            if (deployer == null)
-                throw new NotSupportedException("Configuration files are not supported in this context.");
-
-            using (var writer = new StringWriter())
-            {
-                if (!await deployer.WriteAsync(writer, this.ConfigFileName, this.ConfigInstanceName, this))
-                    return null;
-
-                return Regex.Replace(writer.ToString(), @"\r?\n", " ");
-            }
         }
     }
 }

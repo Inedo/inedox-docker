@@ -25,7 +25,7 @@ namespace Inedo.Extensions.Docker.Operations
         [ScriptAlias("Repository")]
         [ScriptAlias("Source")]
         [DisplayName("Container Source")]
-        [SuggestableValue(typeof(ContainerSourceSuggestionProvider))]
+        [SuggestableValue(typeof(RepositoryRresourceSuggestionProvider))]
         [DefaultValue("$DockerRepository")]
         public string DockerRepository { get; set; }
         [Category("Legacy")]
@@ -42,7 +42,7 @@ namespace Inedo.Extensions.Docker.Operations
         [ScriptAlias("BaseRepository")]
         [ScriptAlias("BaseSource")]
         [DisplayName("Container Source")]
-        [SuggestableValue(typeof(ContainerSourceSuggestionProvider))]
+        [SuggestableValue(typeof(RepositoryRresourceSuggestionProvider))]
         public string BaseContainerSource { get; set; }
 
         [Category("Legacy")]
@@ -105,7 +105,7 @@ namespace Inedo.Extensions.Docker.Operations
                 var sourcePath = context.ResolvePath(this.SourceDirectory);
                 await fileOps.CreateDirectoryAsync(sourcePath);
 
-                var baseContainerSource = (DockerRepository)SecureResource.Create(this.BaseContainerSource, (IResourceResolutionContext)context);
+                var baseContainerSource = DockerRepository24.Create(this.BaseContainerSource, (IResourceResolutionContext)context);
                 baseContainerSource = VerifyRepository(baseContainerSource, this.BaseRepositoryName);
                 var baseId = new ContainerId(this.BaseContainerSource, baseContainerSource.GetRepository((ICredentialResolutionContext)context), this.BaseTag);
 
@@ -140,7 +140,7 @@ namespace Inedo.Extensions.Docker.Operations
                     await writer.FlushAsync();
                 }
 
-                var containerSource = (DockerRepository)SecureResource.Create(this.DockerRepository, (IResourceResolutionContext)context);
+                var containerSource = DockerRepository24.Create(this.DockerRepository, (IResourceResolutionContext)context);
                 containerSource = VerifyRepository(containerSource, this.RepositoryName);
                 var containerId = new ContainerId(this.DockerRepository, containerSource.GetRepository((ICredentialResolutionContext)context), this.Tag);
 

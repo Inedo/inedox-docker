@@ -14,8 +14,7 @@ namespace Inedo.Extensions.Docker.SuggestionProviders
             var items = new List<string>();
             try
             {
-#warning Updated to use actual enum type RaftItemType.BuildFile once upgraded to SDK 2.4
-                items.AddRange(from t in SDK.GetRaftItems((RaftItemType)11, config.EditorContext)
+                items.AddRange(from t in SDK.GetRaftItems(RaftItemType24.BuildFile, config.EditorContext)
                                where t.Name.EndsWith("dockerfile", System.StringComparison.OrdinalIgnoreCase)
                                select t.Name);
             }

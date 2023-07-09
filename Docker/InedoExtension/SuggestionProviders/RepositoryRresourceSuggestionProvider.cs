@@ -1,0 +1,22 @@
+﻿using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using Inedo.Extensibility;
+using Inedo.Extensions.SecureResources;
+using Inedo.Web;
+
+namespace Inedo.Extensions.Docker.SuggestionProviders;
+
+internal sealed class RepositoryRresourceSuggestionProvider : ISuggestionProvider
+{
+    public Task<IEnumerable<string>> GetSuggestionsAsync(IComponentConfiguration config)
+    {
+        return Task.FromResult(from resource in SDK.GetSecureResources()
+
+#pragma warning disable CS0618 
+                            // where resource.InstanceType == typeof(DockerRepository)
+                               where resource.InstanceType == typeof(ContainerSource) || resource.InstanceType.Name == "DockerRepository"
+#pragma warning restore CS0618
+                               select resource.Name);
+    }
+}

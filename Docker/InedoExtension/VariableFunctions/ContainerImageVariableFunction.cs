@@ -1,12 +1,11 @@
-﻿using Inedo.Diagnostics;
+﻿using System.ComponentModel;
+using Inedo.Diagnostics;
 using Inedo.Documentation;
-using Inedo.ExecutionEngine;
 using Inedo.Extensibility;
 using Inedo.Extensibility.Credentials;
 using Inedo.Extensibility.SecureResources;
 using Inedo.Extensibility.VariableFunctions;
 using Inedo.Extensions.SecureResources;
-using System.ComponentModel;
 using static Inedo.Extensions.Docker.Operations.DockerOperation;
 
 namespace Inedo.Extensions.Docker.VariableFunctions
@@ -37,14 +36,14 @@ namespace Inedo.Extensions.Docker.VariableFunctions
 
         private string AssembleImageName(IVariableFunctionContext context)
         {
-            var containerSource = (DockerRepository)SecureResource.Create(this.DockerRepository, (IResourceResolutionContext)context);
+            var containerSource = DockerRepository24.Create(this.DockerRepository, (IResourceResolutionContext)context);
             containerSource = this.VerifyRepository(containerSource, this.RepositoryName);
             var containerId = new ContainerId(this.DockerRepository, containerSource.GetRepository((ICredentialResolutionContext)context), this.Tag);
             return containerId.FullName;
         }
-        private DockerRepository VerifyRepository(DockerRepository containerSource, string repositoryName)
+        private DockerRepository24 VerifyRepository(DockerRepository24 containerSource, string repositoryName)
         {
-            if (containerSource is GenericDockerRepository genericDockerRepository)
+            if (containerSource.IsContainerSource(out var genericDockerRepository))
             {
                 if (string.IsNullOrWhiteSpace(genericDockerRepository.Repository))
                 {
