@@ -1,13 +1,10 @@
 ﻿#nullable enable
 #pragma warning disable CS0618 // Type or member is obsolete
 
-using System;
-using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using Inedo.Extensibility.Credentials;
 using Inedo.Extensibility.SecureResources;
 using Inedo.Extensions.Credentials;
-using Inedo.Serialization;
 
 namespace Inedo.Extensions.SecureResources;
 
@@ -61,7 +58,7 @@ internal sealed class DockerRepository24
             if (creds is UsernamePasswordCredentials upc)
                 return upc;
             else if (creds is TokenCredentials tc)
-                return new UsernamePasswordCredentials { Password = tc.Token };
+                return new UsernamePasswordCredentials { UserName = "api", Password = tc.Token };
 
             return null;
         }

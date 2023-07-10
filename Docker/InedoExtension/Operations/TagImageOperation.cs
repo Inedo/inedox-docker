@@ -11,6 +11,7 @@ using Inedo.Web;
 #nullable enable
 namespace Inedo.Extensions.Docker.Operations
 {
+    [ScriptAlias("Tag")]
     [ScriptAlias("Tag-Image")]
     [ScriptNamespace("Docker")]
     [DisplayName("Tag Docker Image")]
@@ -22,7 +23,7 @@ namespace Inedo.Extensions.Docker.Operations
         [ScriptAlias("Repository")]
         [ScriptAlias("Source")]
         [DisplayName("Repository")]
-        [SuggestableValue(typeof(RepositoryRresourceSuggestionProvider))]
+        [SuggestableValue(typeof(RepositoryResourceSuggestionProvider))]
         [DefaultValue("$DockerRepository")]
         public string? RepositoryResourceName { get; set; }
         [Category("Source")]
@@ -35,7 +36,7 @@ namespace Inedo.Extensions.Docker.Operations
         [ScriptAlias("NewRepository")]
         [ScriptAlias("NewSource")]
         [DisplayName("New Repository")]
-        [SuggestableValue(typeof(RepositoryRresourceSuggestionProvider))]
+        [SuggestableValue(typeof(RepositoryResourceSuggestionProvider))]
         [PlaceholderText("(same as original container source)")]
         public string? NewRepositoryResourceName { get; set; }
         [Required]

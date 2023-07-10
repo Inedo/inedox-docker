@@ -24,7 +24,7 @@ namespace Inedo.Extensions.Docker.Operations
         [ScriptAlias("Repository")]
         [ScriptAlias("Source", Obsolete = true)]
         [DisplayName("Repository")]
-        [SuggestableValue(typeof(RepositoryRresourceSuggestionProvider))]
+        [SuggestableValue(typeof(RepositoryResourceSuggestionProvider))]
         [DefaultValue("$DockerRepository")]
         public string? RepositoryResourceName { get; set; }
         [ScriptAlias("Tag")]
@@ -60,7 +60,11 @@ namespace Inedo.Extensions.Docker.Operations
         [DisplayName("Run in background")]
         [ScriptAlias("RunInBackground")]
         [DefaultValue(true)]
-        public bool RunInBackground { get; set; } = true;
+        public bool RunInBackground { get; set; }
+        [Category("Advanced")]
+        [DisplayName("Remove the container on exit")]
+        [ScriptAlias("RemoveOnExit")]
+        public bool RemoveOnExit { get; set; }
         [Category("Advanced")]
         [ScriptAlias("AdditionalArguments")]
         [DisplayName("Addtional arguments")]
@@ -96,7 +100,9 @@ namespace Inedo.Extensions.Docker.Operations
             {
                 await client.DockerAsync($"pull {client.EscapeArg(repositoryAndTag)}");
 
-                var runArgs = new StringBuilder($"run {dockerstartText} --rm --name {client.EscapeArg(this.ContainerName)}");
+                var runArgs = new StringBuilder($"run {dockerstartText} --name {client.EscapeArg(this.ContainerName)}");
+                if (this.RemoveOnExit)
+                    runArgs.Append(" --rm");
                 if (this.RunInBackground)
                     runArgs.Append(" -d");
                 if (!string.IsNullOrWhiteSpace(AdditionalArguments))

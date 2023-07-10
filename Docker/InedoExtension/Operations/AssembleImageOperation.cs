@@ -25,7 +25,7 @@ namespace Inedo.Extensions.Docker.Operations
         [ScriptAlias("Repository")]
         [ScriptAlias("Source")]
         [DisplayName("Container Source")]
-        [SuggestableValue(typeof(RepositoryRresourceSuggestionProvider))]
+        [SuggestableValue(typeof(RepositoryResourceSuggestionProvider))]
         [DefaultValue("$DockerRepository")]
         public string DockerRepository { get; set; }
         [Category("Legacy")]
@@ -42,7 +42,7 @@ namespace Inedo.Extensions.Docker.Operations
         [ScriptAlias("BaseRepository")]
         [ScriptAlias("BaseSource")]
         [DisplayName("Container Source")]
-        [SuggestableValue(typeof(RepositoryRresourceSuggestionProvider))]
+        [SuggestableValue(typeof(RepositoryResourceSuggestionProvider))]
         public string BaseContainerSource { get; set; }
 
         [Category("Legacy")]

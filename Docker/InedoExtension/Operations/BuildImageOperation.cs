@@ -38,11 +38,11 @@ namespace Inedo.Extensions.Docker.Operations
         [ScriptAlias("Repository")]
         [ScriptAlias("Source")]
         [DisplayName("Repository")]
-        [SuggestableValue(typeof(RepositoryRresourceSuggestionProvider))]
+        [SuggestableValue(typeof(RepositoryResourceSuggestionProvider))]
         [DefaultValue("$DockerRepository")]
         public string? RepositoryResourceName { get; set; }
         [ScriptAlias("Tag")]
-        [DefaultValue("$ReleaseNumber-ci.$BuildNumber")]
+        [DefaultValue("$ReleaseNumber-pre.$BuildNumber")]
         public string? Tag { get; set; }
 
         [Category("Dockerfile (template)")]

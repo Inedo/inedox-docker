@@ -7,7 +7,7 @@ using Inedo.Web;
 
 namespace Inedo.Extensions.Docker.SuggestionProviders;
 
-internal sealed class RepositoryRresourceSuggestionProvider : ISuggestionProvider
+internal sealed class RepositoryResourceSuggestionProvider : ISuggestionProvider
 {
     public Task<IEnumerable<string>> GetSuggestionsAsync(IComponentConfiguration config)
     {
