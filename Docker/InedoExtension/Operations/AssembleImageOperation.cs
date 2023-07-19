@@ -6,6 +6,7 @@ using Inedo.Agents;
 using Inedo.Diagnostics;
 using Inedo.Documentation;
 using Inedo.Extensibility;
+using Inedo.Extensibility.Credentials;
 using Inedo.Extensibility.Operations;
 using Inedo.Extensibility.SecureResources;
 using Inedo.Extensions.Docker.SuggestionProviders;
@@ -20,16 +21,15 @@ namespace Inedo.Extensions.Docker.Operations
     [Description("A simplified version of Build Docker Image for when the full power of a Dockerfile is not required.")]
     public sealed class AssembleImageOperation : DockerOperation
     {
-        [Required]
         [Category("Image")]
+        [ScriptAlias("Repository")]
         [ScriptAlias("Source")]
         [DisplayName("Container Source")]
-        [SuggestableValue(typeof(ContainerSourceSuggestionProvider))]
-        public string ContainerSource { get; set; }
-        [Required]
-        [Category("Image")]
+        [SuggestableValue(typeof(RepositoryResourceSuggestionProvider))]
+        [DefaultValue("$DockerRepository")]
+        public string DockerRepository { get; set; }
+        [Category("Legacy")]
         [ScriptAlias("RepositoryName")]
-        [ScriptAlias("Repository")]
         [DisplayName("Repository name")]
         public string RepositoryName { get; set; }
         [Category("Image")]
@@ -39,15 +39,15 @@ namespace Inedo.Extensions.Docker.Operations
 
         [Required]
         [Category("Base")]
+        [ScriptAlias("BaseRepository")]
         [ScriptAlias("BaseSource")]
         [DisplayName("Container Source")]
-        [SuggestableValue(typeof(ContainerSourceSuggestionProvider))]
+        [SuggestableValue(typeof(RepositoryResourceSuggestionProvider))]
         public string BaseContainerSource { get; set; }
-        [Required]
-        [Category("Base")]
+
+        [Category("Legacy")]
         [ScriptAlias("BaseRepositoryName")]
-        [ScriptAlias("BaseRepository")]
-        [DisplayName("Repository name")]
+        [DisplayName("Base Repository name")]
         public string BaseRepositoryName { get; set; }
         [Required]
         [Category("Base")]
@@ -96,7 +96,7 @@ namespace Inedo.Extensions.Docker.Operations
 
         public override async Task ExecuteAsync(IOperationExecutionContext context)
         {
-            await this.LoginAsync(context, this.ContainerSource);
+            await this.LoginAsync(context, this.DockerRepository);
             try
             {
                 var procExec = await context.Agent.GetServiceAsync<IRemoteProcessExecuter>();
@@ -105,10 +105,11 @@ namespace Inedo.Extensions.Docker.Operations
                 var sourcePath = context.ResolvePath(this.SourceDirectory);
                 await fileOps.CreateDirectoryAsync(sourcePath);
 
-                var baseContainerSource = (ContainerSource)SecureResource.Create(this.BaseContainerSource, (IResourceResolutionContext)context);
-                var baseId = new ContainerId(this.BaseContainerSource, baseContainerSource?.RegistryPrefix, this.BaseRepositoryName, this.BaseTag);
+                var baseContainerSource = DockerRepository24.Create(this.BaseContainerSource, (IResourceResolutionContext)context);
+                baseContainerSource = VerifyRepository(baseContainerSource, this.BaseRepositoryName);
+                var baseId = new ContainerId(this.BaseContainerSource, baseContainerSource.GetRepository((ICredentialResolutionContext)context), this.BaseTag);
 
-                if (!string.IsNullOrEmpty(this.ContainerSource))
+                if (!string.IsNullOrEmpty(this.DockerRepository))
                     baseId = await this.PullAsync(context, baseId);
                 else
                     baseId = baseId.WithDigest(await this.ExecuteGetDigest(context, baseId.FullName));
@@ -139,8 +140,10 @@ namespace Inedo.Extensions.Docker.Operations
                     await writer.FlushAsync();
                 }
 
-                var containerSource = (ContainerSource)SecureResource.Create(this.ContainerSource, (IResourceResolutionContext)context);
-                var containerId = new ContainerId(this.ContainerSource, containerSource?.RegistryPrefix, this.RepositoryName, this.Tag);
+                var containerSource = DockerRepository24.Create(this.DockerRepository, (IResourceResolutionContext)context);
+                containerSource = VerifyRepository(containerSource, this.RepositoryName);
+                var containerId = new ContainerId(this.DockerRepository, containerSource.GetRepository((ICredentialResolutionContext)context), this.Tag);
+
                 var escapeArg = GetEscapeArg(context);
 
                 var args = $"build --force-rm --progress=plain --tag={escapeArg(containerId.FullName)} {this.AdditionalArguments} {escapeArg(sourcePath)}";
@@ -173,7 +176,7 @@ namespace Inedo.Extensions.Docker.Operations
                 var digest = await this.ExecuteGetDigest(context, containerId.FullName);
                 containerId = containerId.WithDigest(digest);
 
-                if (!string.IsNullOrEmpty(this.ContainerSource))
+                if (!string.IsNullOrEmpty(this.DockerRepository))
                     await this.PushAsync(context, containerId);
 
                 if (this.AttachToBuild)
@@ -181,7 +184,7 @@ namespace Inedo.Extensions.Docker.Operations
             }
             finally
             {
-                await this.LogoutAsync(context, this.ContainerSource);
+                await this.LogoutAsync(context, this.DockerRepository);
             }
         }
 

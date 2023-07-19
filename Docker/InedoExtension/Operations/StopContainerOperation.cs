@@ -1,11 +1,12 @@
 ﻿using System;
 using System.ComponentModel;
 using System.Threading.Tasks;
-using Inedo.Agents;
-using Inedo.Diagnostics;
 using Inedo.Documentation;
+using Inedo.ExecutionEngine.Executer;
 using Inedo.Extensibility;
 using Inedo.Extensibility.Operations;
+
+#nullable enable
 
 namespace Inedo.Extensions.Docker.Operations
 {
@@ -13,13 +14,13 @@ namespace Inedo.Extensions.Docker.Operations
     [ScriptNamespace("Docker")]
     [DisplayName("Stop or Delete Docker Container")]
     [Description("Stops a running Docker Container on a container host server.")]
-    public sealed class StopContainerOperation : DockerOperation
+    public sealed class StopContainerOperation : DockerOperation_ForTheNew
     {
         [Required]
         [ScriptAlias("ContainerName")]
         [ScriptAlias("Container")]
         [DisplayName("Container name")]
-        public string ContainerName { get; set; }
+        public string? ContainerName { get; set; }
         [ScriptAlias("Remove")]
         [DisplayName("Remove after stop")]
         [DefaultValue(true)]
@@ -31,34 +32,15 @@ namespace Inedo.Extensions.Docker.Operations
 
         public override async Task ExecuteAsync(IOperationExecutionContext context)
         {
-            this.LogDebug($"Executing docker stop {this.ContainerName}...");
+            if (string.IsNullOrEmpty(this.ContainerName))
+                throw new ExecutionFailureException($"A ContainerName was not specified.");
+            
+            var client = await DockerClientEx.CreateAsync(this, context);
 
-            var escapeArg = GetEscapeArg(context);
-
-            int result = await this.ExecuteCommandLineAsync(
-                context,
-                new RemoteProcessStartInfo
-                {
-                    FileName = this.DockerExePath,
-                    Arguments = "stop " + escapeArg(this.ContainerName)
-                }
-            );
-
-            this.Log(result == 0 ? MessageLevel.Debug : (FailIfContinerDoesNotExist ? MessageLevel.Error : MessageLevel.Warning), "Docker exited with code " + result);
+            await client.DockerAsync($"stop {client.EscapeArg(this.ContainerName)}", failOnErrors: this.FailIfContinerDoesNotExist);
 
             if (this.Remove)
-            {
-                result = await this.ExecuteCommandLineAsync(
-                    context,
-                    new RemoteProcessStartInfo
-                    {
-                        FileName = this.DockerExePath,
-                        Arguments = "rm " + escapeArg(this.ContainerName)
-                    }
-                );
-
-                this.Log(result == 0 ? MessageLevel.Debug : (FailIfContinerDoesNotExist ? MessageLevel.Error : MessageLevel.Warning), "Docker exited with code " + result);
-            }
+                await client.DockerAsync($"rm {client.EscapeArg(this.ContainerName)}", failOnErrors: this.FailIfContinerDoesNotExist);
         }
 
         protected override ExtendedRichDescription GetDescription(IOperationConfiguration config)

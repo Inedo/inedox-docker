@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Linq;
 using System.Threading.Tasks;
 using Inedo.Agents;
 using Inedo.Diagnostics;
@@ -10,16 +11,13 @@ using Inedo.Extensibility;
 using Inedo.Extensibility.Credentials;
 using Inedo.Extensibility.Operations;
 using Inedo.Extensibility.SecureResources;
-using Inedo.Extensions.Credentials;
 using Inedo.Extensions.SecureResources;
-using UsernamePasswordCredentials = Inedo.Extensions.Credentials.UsernamePasswordCredentials;
 
 namespace Inedo.Extensions.Docker.Operations
 {
-    [Tag("docker"), Tag("containers")]
-    public abstract class DockerOperation : ExecuteOperation
+    public abstract class DockerOperation_ForTheNew : ExecuteOperation
     {
-        protected DockerOperation()
+        protected DockerOperation_ForTheNew()
         {
         }
 
@@ -28,6 +26,50 @@ namespace Inedo.Extensions.Docker.Operations
         [ScriptAlias("DockerExePath")]
         [DefaultValue("$DockerExePath")]
         public string DockerExePath { get; set; }
+
+        [Category("Advanced")]
+        [DisplayName("Use Docker (WSL)")]
+        [PlaceholderText("default (use Docker for Windows)")]
+        [Description("When Docker for Windows and Docker on WSL are installed on the same server, Docker for Windows is preferred. Setting this will force Docker (WSL)")]
+        public bool UseWsl { get; set; }
+
+        private protected DockerRepository24 CreateRepository(ICredentialResolutionContext context, string repositoryResourceName, string repositoryNameOverride)
+        {
+            if (string.IsNullOrEmpty(repositoryResourceName))
+                throw new ExecutionFailureException($"A Docker repository was not specified.");
+
+            var repository = DockerRepository24.Create(repositoryResourceName, context)
+                 ?? throw new ExecutionFailureException($"A Docker repository named \"{repositoryResourceName}\" was not found.");
+
+            if (/*repository is GenericDockerRepository genericDockerRepository*/
+                repository.IsContainerSource(out var genericDockerRepository))
+            {
+                if (string.IsNullOrWhiteSpace(genericDockerRepository.Repository))
+                {
+                    if (string.IsNullOrWhiteSpace(genericDockerRepository.LegacyRegistryPrefix))
+                        throw new ExecutionFailureException("LegacyRegistryPrefix is required for generic docker repositories when Repository is not specified.");
+
+                    if (string.IsNullOrWhiteSpace(repositoryNameOverride))
+                        throw new ExecutionFailureException("repositoryNameOverride is required when quiLegacyRegistryPrefix is specified.");
+
+                    this.LogWarning($"The RepositoryName parameter is deprecated; instead, edit \"${repositoryResourceName}\" to include the repository name.");
+                    genericDockerRepository.Repository = $"{genericDockerRepository.LegacyRegistryPrefix.TrimEnd('/')}/{repositoryNameOverride}";
+                }
+            }
+            else if (!string.IsNullOrWhiteSpace(repositoryNameOverride))
+            {
+                this.LogWarning($"The RepositoryName parameter is deprecated; instead, edit \"${repositoryResourceName}\" to include the repository name.");
+            }
+
+            return repository;
+        }
+    }
+
+    public abstract class DockerOperation : DockerOperation_ForTheNew
+    {
+        protected DockerOperation()
+        {
+        }
 
         protected static Func<string, string> GetEscapeArg(IOperationExecutionContext context)
         {
@@ -155,7 +197,17 @@ namespace Inedo.Extensions.Docker.Operations
                 this.Source = source?.TrimEnd('/');
                 this.Prefix = prefix?.TrimEnd('/');
                 this.Name = name ?? throw new ArgumentNullException(nameof(name));
-                this.Tag = tag ?? throw new ArgumentNullException(nameof(name));
+                this.Tag = tag ?? throw new ArgumentNullException(nameof(tag));
+                this.Digest = digest;
+            }
+
+            public ContainerId(string source, string fullRepositoryName, string tag, string digest = null)
+            {
+                this.Source = source?.TrimEnd('/');
+                var parts = fullRepositoryName.Split('/');
+                this.Prefix = parts[0];
+                this.Name = string.Join('/', parts.Skip(1));
+                this.Tag = tag ?? throw new ArgumentNullException(nameof(tag));
                 this.Digest = digest;
             }
 
@@ -182,17 +234,18 @@ namespace Inedo.Extensions.Docker.Operations
             if (string.IsNullOrEmpty(containerSource))
                 return;
 
-            var source = (ContainerSource)SecureResource.Create(containerSource, (IResourceResolutionContext)context);
-            var creds = source.GetCredentials((ICredentialResolutionContext)context);
-            if (creds == null)
+            var source = DockerRepository24.Create(containerSource, (IResourceResolutionContext)context);
+
+            var userpass = source.GetDockerCredentials((ICredentialResolutionContext)context);
+            if (userpass == null)
                 return;
 
-            var userpass = source.GetCredentials((ICredentialResolutionContext)context) as UsernamePasswordCredentials;
-            if (userpass == null)
-                userpass = new UsernamePasswordCredentials { UserName = "api", Password = ((TokenCredentials)creds).Token };
+            var repositoryParts = source.GetRepository((ICredentialResolutionContext)context).Split('/');
+            if (repositoryParts.Length < 2)
+                return;
 
             var escapeArg = GetEscapeArg(context);
-            var output = await this.ExecuteDockerAsync(context, "login", $"{escapeArg(source.RegistryPrefix)} -u {escapeArg(userpass.UserName)} -p {escapeArg(AH.Unprotect(userpass.Password))}", logOutput: logOutput);
+            var output = await this.ExecuteDockerAsync(context, "login", $"{escapeArg(repositoryParts[0])} -u {escapeArg(userpass.UserName)} -p {escapeArg(AH.Unprotect(userpass.Password))}", logOutput: logOutput);
             if (output.ExitCode == 0)
                 return;
 
@@ -202,22 +255,24 @@ namespace Inedo.Extensions.Docker.Operations
         {
             if (string.IsNullOrEmpty(containerSource))
                 return;
-            var source = (ContainerSource)SecureResource.Create(containerSource, (IResourceResolutionContext)context);
-            var creds = source.GetCredentials((ICredentialResolutionContext)context);
-            if (creds == null)
+            var source = DockerRepository24.Create(containerSource, (IResourceResolutionContext)context);
+
+            var userpass = source.GetDockerCredentials((ICredentialResolutionContext)context);
+            if (userpass == null)
                 return;
 
-            var userpass = source.GetCredentials((ICredentialResolutionContext)context) as UsernamePasswordCredentials;
-            if (userpass == null)
-                userpass = new UsernamePasswordCredentials { UserName = "api", Password = ((TokenCredentials)creds).Token };
+            var repositoryParts = source.GetRepository((ICredentialResolutionContext)context).Split('/');
+            if (repositoryParts.Length < 2)
+                return;
 
             var escapeArg = GetEscapeArg(context);
-            var output = await this.ExecuteDockerAsync(context, "logout", $"{escapeArg(source.RegistryPrefix)}", logOutput: logOutput);
+            var output = await this.ExecuteDockerAsync(context, "logout", $"{escapeArg(repositoryParts[0])}", logOutput: logOutput);
             if (output.ExitCode == 0)
                 return;
 
             throw new ExecutionFailureException($"docker logout returned code {output.ExitCode}:\n{string.Join("\n", output.Error)}");
         }
+
 
         protected async Task PushAsync(IOperationExecutionContext context, ContainerId containerId)
         {
@@ -288,6 +343,40 @@ namespace Inedo.Extensions.Docker.Operations
             public int ExitCode { get; }
             public List<string> Output { get; }
             public List<string> Error { get; }
+        }
+
+        internal DockerRepository24 VerifyRepository(DockerRepository24 containerSource, string repositoryName)
+        {
+            if (containerSource.IsContainerSource(out var genericDockerRepository))
+            {
+                if (string.IsNullOrWhiteSpace(genericDockerRepository.Repository))
+                {
+                    if (!string.IsNullOrWhiteSpace(genericDockerRepository.LegacyRegistryPrefix))
+                    {
+                        if (!string.IsNullOrWhiteSpace(repositoryName))
+                        {
+                            this.LogWarning("The RepositoryName parameter is deprecated; instead, edit ${Repository} to include the repository name.");
+                            genericDockerRepository.Repository = $"{genericDockerRepository.LegacyRegistryPrefix.TrimEnd('/')}/{repositoryName}";
+                        }
+                        else
+                        {
+                            this.LogError("Repository name is required for generic docker repositories.");
+                            return null;
+                        }
+                    }
+                    else
+                    {
+                        this.LogError("Repository name is required for generic docker repositories.");
+                        return null;
+                    }
+                }
+            }
+            else if (!string.IsNullOrWhiteSpace(repositoryName))
+            {
+                this.LogWarning("The RepositoryName parameter is deprecated; instead, edit ${Repository} to include the repository name.");
+            }
+
+            return containerSource;
         }
     }
 }

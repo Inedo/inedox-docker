@@ -49,7 +49,7 @@ namespace Inedo.Extensions.Docker.Operations.Compose
         [Category("Source")]
         [ScriptAlias("Source")]
         [DisplayName("Container source")]
-        [SuggestableValue(typeof(ContainerSourceSuggestionProvider))]
+        [SuggestableValue(typeof(RepositoryResourceSuggestionProvider))]
         public string ContainerSource { get; set; }
 
         protected async Task RunDockerComposeAsync(IOperationExecutionContext context, params string[] args)

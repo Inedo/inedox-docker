@@ -1,60 +1,83 @@
 ﻿using System.Collections.Generic;
 using System.ComponentModel;
+using System.Linq;
+using System.Text;
 using System.Threading.Tasks;
 using Inedo.Agents;
 using Inedo.Diagnostics;
+using Inedo.Docker;
 using Inedo.Documentation;
 using Inedo.ExecutionEngine;
+using Inedo.ExecutionEngine.Executer;
 using Inedo.Extensibility;
+using Inedo.Extensibility.Credentials;
 using Inedo.Extensibility.Operations;
 using Inedo.Extensibility.RaftRepositories;
-using Inedo.Extensibility.SecureResources;
 using Inedo.Extensions.Docker.SuggestionProviders;
 using Inedo.Extensions.SecureResources;
+using Inedo.IO;
 using Inedo.Web;
+
+#nullable enable
 
 namespace Inedo.Extensions.Docker.Operations
 {
+
+
     [ScriptAlias("Build-Image")]
     [ScriptNamespace("Docker")]
     [DisplayName("Build Docker Image")]
-    [Description("Builds a Docker image using a text template and pushes it to a specified container source.")]
-    public sealed class BuildImageOperation : DockerOperation
+    [Description("Builds a Docker image using a Dockerfile template and pushes it to the specified repository.")]
+    public sealed partial class BuildImageOperation : DockerOperation_ForTheNew
     {
-        [Required]
-        [ScriptAlias("DockerfileAsset")]
-        [DisplayName("Dockerfile text template")]
-        [PlaceholderText("Select text template...")]
-        [SuggestableValue(typeof(TextTemplateSuggestionProvider))]
-        public string DockerfileTemplate { get; set; }
-        [ScriptAlias("TemplateArguments")]
-        [DisplayName("Addtional template arguments")]
-        [FieldEditMode(FieldEditMode.Multiline)]
-        [PlaceholderText("eg. %(name: value, ...)")]
-        public IDictionary<string, RuntimeValue> TemplateArguments { get; set; }
-        [Required]
-        [ScriptAlias("Source")]
-        [DisplayName("Container registry source")]
-        [SuggestableValue(typeof(ContainerSourceSuggestionProvider))]
-        public string ContainerSource { get; set; }
         [ScriptAlias("From")]
         [DisplayName("From")]
         [PlaceholderText("$WorkingDirectory")]
         [FieldEditMode(FieldEditMode.ServerDirectoryPath)]
-        public string SourceDirectory { get; set; }
-        [Required]
-        [ScriptAlias("RepositoryName")]
+        public string? SourceDirectory { get; set; }
         [ScriptAlias("Repository")]
-        [DisplayName("Repository name")]
-        public string RepositoryName { get; set; }
-        [Required]
+        [ScriptAlias("Source")]
+        [DisplayName("Repository")]
+        [SuggestableValue(typeof(RepositoryResourceSuggestionProvider))]
+        [DefaultValue("$DockerRepository")]
+        public string? RepositoryResourceName { get; set; }
         [ScriptAlias("Tag")]
-        [PlaceholderText("eg. $ReleaseNumber-ci.$BuildNumber")]
-        public string Tag { get; set; }
+        [DefaultValue("$ReleaseNumber-pre.$BuildNumber")]
+        public string? Tag { get; set; }
+
+        [Category("Dockerfile (template)")]
+        [ScriptAlias("Dockerfile")]
+        [ScriptAlias("DockerfileAsset")]
+        [DisplayName("Dockerfile template")]
+        [SuggestableValue(typeof(DockerfileSuggestionProvider))]
+        public string? DockerfileTemplate { get; set; }
+        [Category("Dockerfile template")]
+        [ScriptAlias("DockerfileVariables")]
+        [ScriptAlias("TemplateArguments")]
+        [DisplayName("Addtional template variables values")]
+        [FieldEditMode(FieldEditMode.Multiline)]
+        [PlaceholderText("eg. %(name: value, ...)")]
+        public IDictionary<string, RuntimeValue>? TemplateArguments { get; set; }
+
+        [Category("Legacy")]
+        [ScriptAlias("RepositoryName")]
+        [DisplayName("Override repository name")]
+        [PlaceholderText("Do not override repository")]
+        public string? LegacyRepositoryName { get; set; }
+
+        [Category("Advanced")]
+        [ScriptAlias("DockerfileName")]
+        [DisplayName("Dockerfile name")]
+        [PlaceholderText("Dockerfile")]
+        [DefaultValue("Dockerfile")]
+        [Description("The name of the Dockerfile to use when building your image; ignored when a Dockerfile template is used.")]
+        public string? DockerfileName { get; set; }
+        [Category("Advanced")]
         [ScriptAlias("AdditionalArguments")]
         [DisplayName("Addtional arguments")]
         [Description("Additional arguments for the docker CLI build command, such as --build-arg=ARG_NAME=value")]
-        public string AdditionalArguments { get; set; }
+        public string? AdditionalArguments { get; set; }
+        [Category("Advanced")]
         [ScriptAlias("AttachToBuild")]
         [DisplayName("Attach to build")]
         [DefaultValue(true)]
@@ -64,81 +87,99 @@ namespace Inedo.Extensions.Docker.Operations
         [DisplayName("Remove after pushing")]
         public bool RemoveAfterPush { get; set; }
 
-        public override async Task ExecuteAsync(IOperationExecutionContext context)
+        public override sealed async Task ExecuteAsync(IOperationExecutionContext context)
         {
-            await this.LoginAsync(context, this.ContainerSource);
+            if (string.IsNullOrEmpty(this.Tag))
+                throw new ExecutionFailureException($"A Tag was not specified.");
+            var repoResource = this.CreateRepository(context, this.RepositoryResourceName, this.LegacyRepositoryName);
+
+            var client = await DockerClientEx.CreateAsync(this, context);
+            await client.LoginAsync(repoResource);
+
             try
             {
-                var procExec = await context.Agent.GetServiceAsync<IRemoteProcessExecuter>();
-                var fileOps = await context.Agent.GetServiceAsync<IFileOperationsExecuter>();
-                await fileOps.CreateDirectoryAsync(context.WorkingDirectory);
-                var sourcePath = context.ResolvePath(this.SourceDirectory);
-                await fileOps.CreateDirectoryAsync(sourcePath);
-                var dockerfilePath = fileOps.CombinePath(sourcePath, "Dockerfile");
-
-                if (!string.IsNullOrWhiteSpace(this.DockerfileTemplate))
+                var esc = client.EscapeArg;
+                string cvt(string path)
                 {
-                    var item = SDK.GetRaftItem(RaftItemType.TextTemplate, this.DockerfileTemplate, context);
-                    if (item == null)
-                    {
-                        this.LogError($"Text template \"{this.DockerfileTemplate}\" not found.");
-                        return;
-                    }
+                    if (client.ClientType != DockerClientType.Wsl)
+                        return path;
+                    this.LogInformation($"Converting \"{path}\" for use on WSL...");
+                    
+                    // c:\something\somewhere --> /mnt/c/something/somewhere
+                    return "/mnt/" + path[0] + path.Substring(2).Replace("\\", "/");
 
-                    var dockerfileText = await context.ApplyTextTemplateAsync(item.Content, this.TemplateArguments != null ? new Dictionary<string, RuntimeValue>(this.TemplateArguments) : null);
-
-                    await fileOps.WriteAllTextAsync(dockerfilePath, dockerfileText, InedoLib.UTF8Encoding);
-                }
-
-                var containerSource = (ContainerSource)SecureResource.Create(this.ContainerSource, (IResourceResolutionContext)context);
-                var containerId = new ContainerId(this.ContainerSource, containerSource?.RegistryPrefix, this.RepositoryName, this.Tag);
-
-                var escapeArg = GetEscapeArg(context);
-                var args = $"build --force-rm --progress=plain --tag={escapeArg(containerId.FullName)} {this.AdditionalArguments} {escapeArg(sourcePath)}";
-                this.LogDebug("Executing docker " + args);
-
-                var startInfo = new RemoteProcessStartInfo
-                {
-                    FileName = this.DockerExePath,
-                    Arguments = args,
-                    WorkingDirectory = sourcePath
                 };
+                var fileOps = await context.Agent.GetServiceAsync<IFileOperationsExecuter>();
 
-                using (var process = procExec.CreateProcess(startInfo))
+                await fileOps.CreateDirectoryAsync(context.WorkingDirectory);
+                
+                var sourcePath = string.IsNullOrEmpty(this.SourceDirectory)
+                    ? context.WorkingDirectory
+                    : context.ResolvePath(this.SourceDirectory);
+                await fileOps.CreateDirectoryAsync(sourcePath);
+
+                string dockerfilePath;
+                if (string.IsNullOrWhiteSpace(this.DockerfileTemplate))
                 {
-                    process.OutputDataReceived += (s, e) => this.LogInformation(e.Data);
-                    process.ErrorDataReceived += (s, e) => this.LogBuildError(context, e.Data);
+                    if (string.IsNullOrEmpty(this.DockerfileName))
+                        throw new ExecutionFailureException("DockerfileName must be specified when Dockerfile is empty.");
 
-                    process.Start();
-                    await process.WaitAsync(context.CancellationToken);
+                    dockerfilePath = fileOps.CombinePath(sourcePath, this.DockerfileName);
+                }
+                else
+                {
+                    dockerfilePath = fileOps.CombinePath(sourcePath, "Dockerfile");
 
-                    if (process.ExitCode != 0)
-                    {
-                        this.LogError($"exit code: {process.ExitCode ?? -1}");
-                        return;
-                    }
+                    this.LogDebug($"Loading Dockerfile template \"{this.DockerfileTemplate}\"...");
+                    var item = SDK
+                        .GetRaftItems(RaftItemType24.BuildFile, context)
+                        .FirstOrDefault(i => string.Equals(i.Name, this.DockerfileTemplate, System.StringComparison.CurrentCultureIgnoreCase))
+                        ?? SDK
+                        .GetRaftItems(RaftItemType.TextTemplate, context)
+                        .FirstOrDefault(i => string.Equals(i.Name, this.DockerfileTemplate, System.StringComparison.CurrentCultureIgnoreCase))
+                        ?? throw new ExecutionFailureException($"Dockerfile template \"{this.DockerfileTemplate}\" not found.");
+
+                    this.LogDebug($"Applying template...");
+                    var _ = await context.ApplyTextTemplateAsync(item.Content, this.TemplateArguments != null ? new Dictionary<string, RuntimeValue>(this.TemplateArguments) : null);
+                    await fileOps.WriteAllTextAsync(dockerfilePath, _, InedoLib.UTF8Encoding);
                 }
 
-                var digest = await this.ExecuteGetDigest(context, containerId.FullName);
-                containerId = containerId.WithDigest(digest);
+                var repository = repoResource.GetRepository(context);
+                if (string.IsNullOrEmpty(repository))
+                    throw new ExecutionFailureException($"Docker repository \"{this.RepositoryResourceName}\" has an unexpected name.");
 
-                if (!string.IsNullOrEmpty(this.ContainerSource))
+                var repositoryAndTag = $"{repository}:{this.Tag}";
+
+                var buildArgs = new StringBuilder();
                 {
-                    await this.PushAsync(context, containerId);
-
-                    if (this.RemoveAfterPush)
-                    {
-                        this.LogDebug("Removing local image after successful push...");
-                        await this.RemoveAsync(context, containerId);
-                    }
+                    buildArgs.Append($" --force-rm --progress=plain");
+                    buildArgs.Append($" --tag={esc(repositoryAndTag)}");
+                    if (PathEx.GetFileName(dockerfilePath) != "Dockerfile")
+                        buildArgs.Append($" --f {esc(cvt(dockerfilePath))}");
+                    if (string.IsNullOrEmpty(this.AdditionalArguments))
+                        buildArgs.Append($" {this.AdditionalArguments}");
+                    buildArgs.Append($" {esc(cvt(sourcePath))}");
                 }
+                await client.DockerAsync("build" + buildArgs.ToString(), true);
+
+                this.LogInformation("Docker build successful.");
+
+                await client.DockerAsync($"push {esc(repositoryAndTag)}");
 
                 if (this.AttachToBuild)
-                    await this.AttachToBuildAsync(context, containerId);
+                {
+                    var digest = await client.GetDigestAsync(repositoryAndTag);
+                    var containerManager = await context.TryGetServiceAsync<IContainerManager>()
+                        ?? throw new ExecutionFailureException("Unable to get service IContainerManager to attach to build.");
+                    await containerManager.AttachContainerToBuildAsync(new(repository, this.Tag, digest, this.RepositoryResourceName), context.CancellationToken);
+                }
+
+                if (this.RemoveAfterPush)
+                    await client.DockerAsync($"rmi {esc(repositoryAndTag)}");
             }
             finally
             {
-                await this.LogoutAsync(context, this.ContainerSource);
+                await client.LogoutAsync();
             }
         }
 
@@ -147,7 +188,7 @@ namespace Inedo.Extensions.Docker.Operations
             return new ExtendedRichDescription(
                 new RichDescription(
                     "Build ",
-                    new Hilite(config[nameof(RepositoryName)] + ":" + config[nameof(Tag)]),
+                    new Hilite(config[nameof(RepositoryResourceName)] + ":" + config[nameof(Tag)]),
                     " Docker image"
                 ),
                 new RichDescription(
