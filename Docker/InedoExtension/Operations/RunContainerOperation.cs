@@ -31,18 +31,18 @@ namespace Inedo.Extensions.Docker.Operations
         [DefaultValue("$DockerTag")]
         public string? Tag { get; set; }
         [Required]
-        [DisplayName("Dockerstart file")]
-        [ScriptAlias("DockerstartFile")]
+        [DisplayName("Docker Run Config")]
+        [ScriptAlias("DockerRunConfig")]
         [ScriptAlias("ConfigFileName", Obsolete = true)]
         [SuggestableValue(typeof(ConfigurationSuggestionProvider))]
-        [DefaultValue("Dockerstart")]
-        public string? DockerstartFileName { get; set; }
-        [DisplayName("Dockerstart instance")]
-        [ScriptAlias("DockerstartFileInstance")]
+        [DefaultValue("DockerRun")]
+        public string? DockerRunConfig { get; set; }
+        [DisplayName("Docker Run Config instance")]
+        [ScriptAlias("DockerRunConfigInstance")]
         [ScriptAlias("ConfigFileInstanceName", Obsolete = true)]
         [SuggestableValue(typeof(ConfigurationInstanceSuggestionProvider))]
         [DefaultValue("$PipelineStageName")]
-        public string? DockerstartFileInstance { get; set; }
+        public string? DockerRunConfigInstance { get; set; }
 
         [Category("Legacy")]
         [ScriptAlias("RepositoryName")]
@@ -77,10 +77,10 @@ namespace Inedo.Extensions.Docker.Operations
                 throw new ExecutionFailureException($"A RepositoryResourceName was not specified.");
             if (string.IsNullOrEmpty(this.Tag))
                 throw new ExecutionFailureException($"A Tag was not specified.");
-            if (string.IsNullOrEmpty(this.DockerstartFileName))
-                throw new ExecutionFailureException($"A DockerstartFileName was not specified.");
-            if (string.IsNullOrEmpty(this.DockerstartFileInstance))
-                throw new ExecutionFailureException($"A DockerstartFileInstance was not specified.");
+            if (string.IsNullOrEmpty(this.DockerRunConfig))
+                throw new ExecutionFailureException($"A Docker Run Config was not specified.");
+            if (string.IsNullOrEmpty(this.DockerRunConfigInstance))
+                throw new ExecutionFailureException($"A Docker Run Config Instance was not specified.");
 
             var repoResource = this.CreateRepository(context, this.RepositoryResourceName, this.LegacyRepositoryName);
             var repository = repoResource.GetRepository(context);
@@ -90,7 +90,7 @@ namespace Inedo.Extensions.Docker.Operations
             if (string.IsNullOrEmpty(this.ContainerName))
                 this.ContainerName = repository.Split('/').Last();
 
-            var dockerstartText = await getDockerstartTextAsync();
+            var dockerRunText = await getDockerRunTextAsync();
 
             var repositoryAndTag = $"{repository}:{this.Tag}";
 
@@ -100,7 +100,7 @@ namespace Inedo.Extensions.Docker.Operations
             {
                 await client.DockerAsync($"pull {client.EscapeArg(repositoryAndTag)}");
 
-                var runArgs = new StringBuilder($"run {dockerstartText} --name {client.EscapeArg(this.ContainerName)}");
+                var runArgs = new StringBuilder($"run {dockerRunText} --name {client.EscapeArg(this.ContainerName)}");
                 if (this.RemoveOnExit)
                     runArgs.Append(" --rm");
                 if (this.RunInBackground)
@@ -116,14 +116,14 @@ namespace Inedo.Extensions.Docker.Operations
                 await client.LogoutAsync();
             }
 
-            async Task<string> getDockerstartTextAsync()
+            async Task<string> getDockerRunTextAsync()
             {
                 var deployer = (await context.TryGetServiceAsync<IConfigurationFileDeployer>())
                     ?? throw new ExecutionFailureException("Configuration files are not supported in this context.");
 
                 using var writer = new StringWriter();
-                if (!await deployer.WriteAsync(writer, this.DockerstartFileName, this.DockerstartFileInstance, this))
-                    throw new ExecutionFailureException("Error reading Dockerstart configuration file.");
+                if (!await deployer.WriteAsync(writer, this.DockerRunConfig, this.DockerRunConfigInstance, this))
+                    throw new ExecutionFailureException("Error reading Docker Run Config.");
 
                 return Regex.Replace(writer.ToString(), @"\r?\n", " ");
             }
@@ -139,10 +139,10 @@ namespace Inedo.Extensions.Docker.Operations
                 ),
                 new RichDescription(
                     "using ",
-                    new Hilite(config[nameof(DockerstartFileInstance)]),
+                    new Hilite(config[nameof(DockerRunConfigInstance)]),
                     " instance of ",
-                    new Hilite(config[nameof(DockerstartFileName)]),
-                    " Dockerstart file"
+                    new Hilite(config[nameof(DockerRunConfig)]),
+                    "."
                 )
             );
         }
