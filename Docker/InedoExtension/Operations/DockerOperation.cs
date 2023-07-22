@@ -50,15 +50,16 @@ namespace Inedo.Extensions.Docker.Operations
                         throw new ExecutionFailureException("LegacyRegistryPrefix is required for generic docker repositories when Repository is not specified.");
 
                     if (string.IsNullOrWhiteSpace(repositoryNameOverride))
-                        throw new ExecutionFailureException("repositoryNameOverride is required when quiLegacyRegistryPrefix is specified.");
+                        throw new ExecutionFailureException("When LegacyRegistryPrefix is used, a RepositoryName override must also be specified.");
 
-                    this.LogWarning($"The RepositoryName parameter is deprecated; instead, edit \"${repositoryResourceName}\" to include the repository name.");
+                    this.LogWarning($"The RepositoryName override parameter is deprecated; instead, edit \"{repositoryResourceName}\" to include the repository name.");
                     genericDockerRepository.Repository = $"{genericDockerRepository.LegacyRegistryPrefix.TrimEnd('/')}/{repositoryNameOverride}";
+                    this.LogDebug($"Repository is \"{genericDockerRepository.Repository}\".");
                 }
             }
             else if (!string.IsNullOrWhiteSpace(repositoryNameOverride))
             {
-                this.LogWarning($"The RepositoryName parameter is deprecated; instead, edit \"${repositoryResourceName}\" to include the repository name.");
+                this.LogWarning($"Specifying the Repository using the RepositoryName parameter is deprecated; instead, edit \"{repositoryResourceName}\" to include the repository name.");
             }
 
             return repository;

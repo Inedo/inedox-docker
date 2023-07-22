@@ -68,7 +68,7 @@ internal sealed class DockerRepository24
     public bool IsContainerSource(out DockerRepository24 source)
     {
         source = this;
-        return this.resource is ContainerSource;
+        return this.resource.GetType() == typeof(ContainerSource);
     }
 
 
