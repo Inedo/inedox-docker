@@ -36,13 +36,17 @@ internal sealed class DockerRepository24
 
     public string? GetRepository(ICredentialResolutionContext credentialResolutionContext)
     {
+        // this value is hacked in by operations, and is only really valid on ContainerSource (aka GenericDockerRepository) when LegacyRegistryPrefix is set
+        if (!string.IsNullOrEmpty(this.Repository))
+            return this.Repository;
+
         try
         {
             return GetRepository(this.resource, credentialResolutionContext);
         }
         catch
         {
-            return this.Repository;
+            return null;
         }
     }
 
