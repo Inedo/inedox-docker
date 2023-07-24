@@ -15,6 +15,7 @@ using Inedo.Web;
 
 namespace Inedo.Extensions.Docker.Operations
 {
+    [Undisclosed]
     [ScriptAlias("Assemble-Image")]
     [ScriptNamespace("Docker")]
     [DisplayName("Assemble Docker Image")]

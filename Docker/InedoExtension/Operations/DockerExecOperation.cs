@@ -1,9 +1,12 @@
 ﻿using System.ComponentModel;
+using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Inedo.Agents;
 using Inedo.Diagnostics;
 using Inedo.Documentation;
+using Inedo.ExecutionEngine;
+using Inedo.ExecutionEngine.Executer;
 using Inedo.Extensibility;
 using Inedo.Extensibility.Operations;
 
@@ -16,9 +19,9 @@ namespace Inedo.Extensions.Docker.Operations
     [Description("Attaches and runs a command in an already running container")]
     public class DockerExecOperation : DockerOperation
     {
-        [Required]
         [DisplayName("Container name")]
         [ScriptAlias("ContainerName")]
+        [DefaultValue("default (based on $DockerRepository)")]
         public string ContainerName { get; set; }
 
 
@@ -51,7 +54,20 @@ namespace Inedo.Extensions.Docker.Operations
 
         public override async Task ExecuteAsync(IOperationExecutionContext context)
         {
-           
+            if (string.IsNullOrEmpty(this.ContainerName))
+            {
+                var maybeVariable = context.TryGetVariableValue(new RuntimeVariableName("DockerRepository", RuntimeValueType.Scalar);
+                if (maybeVariable == null)
+                {
+                    var maybeFunc = context.TryGetFunctionValue("DockerRepository");
+                    if (maybeFunc == null)
+                        throw new ExecutionFailureException($"A ContainerName was not specified and $DockerRepository could not be resolved.");
+                    else
+                        this.ContainerName = maybeFunc.Value.AsString()!.Split('/').Last();
+                }
+                else
+                    this.ContainerName = maybeVariable.Value.AsString()!.Split('/').Last();
+            }
 
             var escapeArg = GetEscapeArg(context);
 

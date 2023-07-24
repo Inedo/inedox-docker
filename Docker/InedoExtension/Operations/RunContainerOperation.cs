@@ -30,13 +30,15 @@ namespace Inedo.Extensions.Docker.Operations
         [ScriptAlias("Tag")]
         [DefaultValue("$DockerTag")]
         public string? Tag { get; set; }
-        [Required]
+
+        [Category("Run Config")]
         [DisplayName("Docker Run Config")]
         [ScriptAlias("DockerRunConfig")]
         [ScriptAlias("ConfigFileName", Obsolete = true)]
         [SuggestableValue(typeof(ConfigurationSuggestionProvider))]
         [DefaultValue("DockerRun")]
         public string? DockerRunConfig { get; set; }
+        [Category("Run Config")]
         [DisplayName("Docker Run Config instance")]
         [ScriptAlias("DockerRunConfigInstance")]
         [ScriptAlias("ConfigFileInstanceName", Obsolete = true)]
@@ -50,6 +52,12 @@ namespace Inedo.Extensions.Docker.Operations
         [PlaceholderText("Do not override repository")]
         public string? LegacyRepositoryName { get; set; }
 
+        [Category("Advanced")]
+        [DisplayName("Restart policy")]
+        [ScriptAlias("Restart")]
+        [DefaultValue("unless-stopped")]
+        [SuggestableValue("no", "on-failure", "always", "unless-stopped")]
+        public string? RestartPolicy { get; set; }
         [Category("Advanced")]
         [DisplayName("Container name")]
         [ScriptAlias("ContainerName")]
@@ -77,10 +85,8 @@ namespace Inedo.Extensions.Docker.Operations
                 throw new ExecutionFailureException($"A RepositoryResourceName was not specified.");
             if (string.IsNullOrEmpty(this.Tag))
                 throw new ExecutionFailureException($"A Tag was not specified.");
-            if (string.IsNullOrEmpty(this.DockerRunConfig))
-                throw new ExecutionFailureException($"A Docker Run Config was not specified.");
-            if (string.IsNullOrEmpty(this.DockerRunConfigInstance))
-                throw new ExecutionFailureException($"A Docker Run Config Instance was not specified.");
+            if (!string.IsNullOrEmpty(this.DockerRunConfig) && string.IsNullOrEmpty(this.DockerRunConfigInstance))
+                throw new ExecutionFailureException($"An Instance is required when specifying a Docker Run Config.");
 
             var repoResource = this.CreateRepository(context, this.RepositoryResourceName, this.LegacyRepositoryName);
             var repository = repoResource.GetRepository(context);
@@ -100,13 +106,15 @@ namespace Inedo.Extensions.Docker.Operations
             {
                 await client.DockerAsync($"pull {client.EscapeArg(repositoryAndTag)}");
 
-                var runArgs = new StringBuilder($"run {dockerRunText} --name {client.EscapeArg(this.ContainerName)}");
+                var runArgs = new StringBuilder($"run --name {client.EscapeArg(this.ContainerName)}");
+                if (!string.IsNullOrEmpty(dockerRunText))
+                    runArgs.Append($" {dockerRunText}");
                 if (this.RemoveOnExit)
                     runArgs.Append(" --rm");
                 if (this.RunInBackground)
                     runArgs.Append(" -d");
                 if (!string.IsNullOrWhiteSpace(AdditionalArguments))
-                    runArgs.Append($" {this.AdditionalArguments} ");
+                    runArgs.Append($" {this.AdditionalArguments}");
                 runArgs.Append($" {client.EscapeArg(repositoryAndTag)}");
 
                 await client.DockerAsync(runArgs.ToString());
@@ -116,8 +124,11 @@ namespace Inedo.Extensions.Docker.Operations
                 await client.LogoutAsync();
             }
 
-            async Task<string> getDockerRunTextAsync()
+            async Task<string?> getDockerRunTextAsync()
             {
+                if (string.IsNullOrEmpty(this.DockerRunConfig))
+                    return null;
+
                 var deployer = (await context.TryGetServiceAsync<IConfigurationFileDeployer>())
                     ?? throw new ExecutionFailureException("Configuration files are not supported in this context.");
 
@@ -137,6 +148,7 @@ namespace Inedo.Extensions.Docker.Operations
                     new Hilite(config[nameof(RepositoryResourceName)] + ":" + config[nameof(Tag)]),
                     " Docker image"
                 ),
+
                 new RichDescription(
                     "using ",
                     new Hilite(config[nameof(DockerRunConfigInstance)]),

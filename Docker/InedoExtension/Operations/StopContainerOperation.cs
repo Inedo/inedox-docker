@@ -1,7 +1,9 @@
 ﻿using System;
 using System.ComponentModel;
+using System.Linq;
 using System.Threading.Tasks;
 using Inedo.Documentation;
+using Inedo.ExecutionEngine;
 using Inedo.ExecutionEngine.Executer;
 using Inedo.Extensibility;
 using Inedo.Extensibility.Operations;
@@ -16,10 +18,10 @@ namespace Inedo.Extensions.Docker.Operations
     [Description("Stops a running Docker Container on a container host server.")]
     public sealed class StopContainerOperation : DockerOperation_ForTheNew
     {
-        [Required]
         [ScriptAlias("ContainerName")]
         [ScriptAlias("Container")]
         [DisplayName("Container name")]
+        [DefaultValue("default (based on $DockerRepository)")]
         public string? ContainerName { get; set; }
         [ScriptAlias("Remove")]
         [DisplayName("Remove after stop")]
@@ -33,7 +35,19 @@ namespace Inedo.Extensions.Docker.Operations
         public override async Task ExecuteAsync(IOperationExecutionContext context)
         {
             if (string.IsNullOrEmpty(this.ContainerName))
-                throw new ExecutionFailureException($"A ContainerName was not specified.");
+            {
+                var maybeVariable = context.TryGetVariableValue(new RuntimeVariableName("DockerRepository", RuntimeValueType.Scalar);
+                if (maybeVariable == null)
+                {
+                    var maybeFunc = context.TryGetFunctionValue("DockerRepository");
+                    if (maybeFunc == null)
+                        throw new ExecutionFailureException($"A ContainerName was not specified and $DockerRepository could not be resolved.");
+                    else
+                        this.ContainerName = maybeFunc.Value.AsString()!.Split('/').Last();
+                }
+                else
+                    this.ContainerName = maybeVariable.Value.AsString()!.Split('/').Last();
+            }
             
             var client = await DockerClientEx.CreateAsync(this, context);
 
