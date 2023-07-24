@@ -36,7 +36,7 @@ namespace Inedo.Extensions.Docker.Operations
         {
             if (string.IsNullOrEmpty(this.ContainerName))
             {
-                var maybeVariable = context.TryGetVariableValue(new RuntimeVariableName("DockerRepository", RuntimeValueType.Scalar);
+                var maybeVariable = context.TryGetVariableValue(new RuntimeVariableName("DockerRepository", RuntimeValueType.Scalar));
                 if (maybeVariable == null)
                 {
                     var maybeFunc = context.TryGetFunctionValue("DockerRepository");
