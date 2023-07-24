@@ -42,7 +42,7 @@ internal sealed class DockerRepository24
 
         try
         {
-            return GetRepository(this.resource, credentialResolutionContext);
+            return GetRepository(this.resource, credentialResolutionContext)?.ToLower();
         }
         catch
         {
