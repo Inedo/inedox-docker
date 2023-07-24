@@ -39,13 +39,13 @@ namespace Inedo.Extensions.Docker.Operations
         [ScriptAlias("Interactive")]
         [Description("Keep STDIN open even if not attached")]
         [DefaultValue(true)]
-        public bool Interactive { get; set; } = true;
+        public bool? Interactive { get; set; }
 
         [DisplayName("Run in background (detach)")]
         [ScriptAlias("RunInBackground")]
         [Description("Detached mode: run command in the background")]
         [DefaultValue(false)]
-        public bool RunInBackground { get; set; } = false;
+        public bool? RunInBackground { get; set; }
 
         [ScriptAlias("AdditionalArguments")]
         [DisplayName("Addtional arguments")]
@@ -72,9 +72,9 @@ namespace Inedo.Extensions.Docker.Operations
             var escapeArg = GetEscapeArg(context);
 
             var args = new StringBuilder("exec ");
-            if (this.RunInBackground)
+            if (this.RunInBackground ?? false)
                 args.Append("--detach ");
-            if (this.Interactive)
+            if (this.Interactive ?? true)
                 args.Append("--interactive ");
             if (!string.IsNullOrWhiteSpace(this.WorkDir))
                 args.Append($"--workdir {escapeArg(this.WorkDir)} ");

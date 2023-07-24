@@ -68,7 +68,7 @@ namespace Inedo.Extensions.Docker.Operations
         [DisplayName("Run in background")]
         [ScriptAlias("RunInBackground")]
         [DefaultValue(true)]
-        public bool RunInBackground { get; set; }
+        public bool? RunInBackground { get; set; }
         [Category("Advanced")]
         [DisplayName("Remove the container on exit")]
         [ScriptAlias("RemoveOnExit")]
@@ -111,7 +111,7 @@ namespace Inedo.Extensions.Docker.Operations
                     runArgs.Append($" {dockerRunText}");
                 if (this.RemoveOnExit)
                     runArgs.Append(" --rm");
-                if (this.RunInBackground)
+                if (this.RunInBackground ?? true)
                     runArgs.Append(" -d");
                 if (!string.IsNullOrWhiteSpace(AdditionalArguments))
                     runArgs.Append($" {this.AdditionalArguments}");
