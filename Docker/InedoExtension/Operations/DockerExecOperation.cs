@@ -75,7 +75,7 @@ namespace Inedo.Extensions.Docker.Operations
             if (this.RunInBackground ?? false)
                 args.Append("--detach ");
             if (this.Interactive ?? true)
-                args.Append("-it ");
+                args.Append("--interactive ");
             if (!string.IsNullOrWhiteSpace(this.WorkDir))
                 args.Append($"--workdir {escapeArg(this.WorkDir)} ");
 
@@ -85,7 +85,7 @@ namespace Inedo.Extensions.Docker.Operations
             args.Append($"{escapeArg(this.ContainerName)} {this.Command}");
 
             var client = await DockerClientEx.CreateAsync(this, context);
-            await client.DockerAsync(args.ToString());
+            await client.DockerAsync(args.ToString(), true);
         }
 
         protected override ExtendedRichDescription GetDescription(IOperationConfiguration config)
