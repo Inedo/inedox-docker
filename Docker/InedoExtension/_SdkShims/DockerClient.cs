@@ -6,9 +6,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using Inedo.Agents;
 using Inedo.Extensibility.Agents;
-using Inedo.Extensibility.Credentials;
-using Inedo.Extensions.SecureResources;
-using Inedo.Web.Controls.Layout;
 #nullable enable
 
 namespace Inedo.Docker;

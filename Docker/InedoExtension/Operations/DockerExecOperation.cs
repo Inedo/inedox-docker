@@ -84,20 +84,8 @@ namespace Inedo.Extensions.Docker.Operations
 
             args.Append($"{escapeArg(this.ContainerName)} {this.Command}");
 
-
-            var argsText = args.ToString();
-            this.LogDebug($"Executing docker {argsText}...");
-
-            int result = await this.ExecuteCommandLineAsync(
-                context,
-                new RemoteProcessStartInfo
-                {
-                    FileName = this.DockerExePath,
-                    Arguments = argsText
-                }
-            );
-
-            this.Log(result == 0 ? MessageLevel.Debug : MessageLevel.Error, "Docker exited with code " + result);
+            var client = await DockerClientEx.CreateAsync(this, context);
+            await client.DockerAsync(args.ToString());
         }
 
         protected override ExtendedRichDescription GetDescription(IOperationConfiguration config)
