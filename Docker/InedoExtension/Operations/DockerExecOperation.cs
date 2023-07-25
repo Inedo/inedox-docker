@@ -75,7 +75,7 @@ namespace Inedo.Extensions.Docker.Operations
             if (this.RunInBackground ?? false)
                 args.Append("--detach ");
             if (this.Interactive ?? true)
-                args.Append("--interactive ");
+                args.Append("-it ");
             if (!string.IsNullOrWhiteSpace(this.WorkDir))
                 args.Append($"--workdir {escapeArg(this.WorkDir)} ");
 

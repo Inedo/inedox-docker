@@ -117,7 +117,7 @@ namespace Inedo.Extensions.Docker.Operations
                     runArgs.Append($" {this.AdditionalArguments}");
                 runArgs.Append($" {client.EscapeArg(repositoryAndTag)}");
 
-                await client.DockerAsync(runArgs.ToString());
+                await client.DockerAsync(runArgs.ToString(), true);
             }
             finally
             {
