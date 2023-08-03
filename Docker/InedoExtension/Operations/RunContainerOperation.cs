@@ -53,6 +53,13 @@ namespace Inedo.Extensions.Docker.Operations
         public string? LegacyRepositoryName { get; set; }
 
         [Category("Advanced")]
+        [DisplayName("Repository URL")]
+        [ScriptAlias("RepositoryUrl")]
+        [PlaceholderText("ex: mcr.microsoft.com/mssql/server")]
+        [Description("Repository URL is a public Docker Repository to pull an image without the need to login.  This overrides the Repository parameter.  ex: mcr.microsoft.com/mssql/server")]
+        public string? RepositoryUrl { get; set; }
+
+        [Category("Advanced")]
         [DisplayName("Restart policy")]
         [ScriptAlias("Restart")]
         [DefaultValue("unless-stopped")]
@@ -81,15 +88,16 @@ namespace Inedo.Extensions.Docker.Operations
 
         public override async Task ExecuteAsync(IOperationExecutionContext context)
         {
-            if (string.IsNullOrEmpty(this.RepositoryResourceName))
-                throw new ExecutionFailureException($"A RepositoryResourceName was not specified.");
+            if (string.IsNullOrEmpty(this.RepositoryResourceName) && string.IsNullOrWhiteSpace(this.RepositoryUrl))
+                throw new ExecutionFailureException($"A RepositoryResourceName or a RepositoryUrl was not specified.");
             if (string.IsNullOrEmpty(this.Tag))
                 throw new ExecutionFailureException($"A Tag was not specified.");
             if (!string.IsNullOrEmpty(this.DockerRunConfig) && string.IsNullOrEmpty(this.DockerRunConfigInstance))
                 throw new ExecutionFailureException($"An Instance is required when specifying a Docker Run Config.");
 
-            var repoResource = this.CreateRepository(context, this.RepositoryResourceName, this.LegacyRepositoryName);
-            var repository = repoResource.GetRepository(context);
+            var repoResource = string.IsNullOrWhiteSpace(this.RepositoryUrl) ? this.CreateRepository(context, this.RepositoryResourceName, this.LegacyRepositoryName) : null;
+            var repository = AH.NullIf(this.RepositoryUrl, string.Empty) ?? repoResource?.GetRepository(context);
+
             if (string.IsNullOrEmpty(repository))
                 throw new ExecutionFailureException($"Docker repository \"{this.RepositoryResourceName}\" has an unexpected name.");
 
@@ -101,7 +109,9 @@ namespace Inedo.Extensions.Docker.Operations
             var repositoryAndTag = $"{repository}:{this.Tag}";
 
             var client = await DockerClientEx.CreateAsync(this, context);
-            await client.LoginAsync(repoResource);
+
+            if(repoResource != null)
+                await client.LoginAsync(repoResource);
             try
             {
                 await client.DockerAsync($"pull {client.EscapeArg(repositoryAndTag)}");
@@ -121,7 +131,8 @@ namespace Inedo.Extensions.Docker.Operations
             }
             finally
             {
-                await client.LogoutAsync();
+                if (repoResource != null)
+                    await client.LogoutAsync();
             }
 
             async Task<string?> getDockerRunTextAsync()

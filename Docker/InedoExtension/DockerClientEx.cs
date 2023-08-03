@@ -53,6 +53,9 @@ internal sealed class DockerClientEx
 
     public async Task LoginAsync(DockerRepository24 repoResource)
     {
+        if (repoResource == null)
+            return;
+
         var userpass = repoResource.GetDockerCredentials(context);
         if (userpass == null)
         {
