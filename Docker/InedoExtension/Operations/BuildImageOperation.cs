@@ -156,7 +156,7 @@ namespace Inedo.Extensions.Docker.Operations
                     buildArgs.Append($" --tag={esc(repositoryAndTag)}");
                     if (PathEx.GetFileName(dockerfilePath) != "Dockerfile")
                         buildArgs.Append($" --f {esc(cvt(dockerfilePath))}");
-                    if (string.IsNullOrEmpty(this.AdditionalArguments))
+                    if (!string.IsNullOrEmpty(this.AdditionalArguments))
                         buildArgs.Append($" {this.AdditionalArguments}");
                     buildArgs.Append($" {esc(cvt(sourcePath))}");
                 }
