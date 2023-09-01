@@ -14,7 +14,6 @@ namespace Inedo.Extensions.Docker.Operations
 {
     [ScriptAlias("Stop-Container")]
     [ScriptNamespace("Docker")]
-    [DisplayName("Stop or Delete Docker Container")]
     [Description("Stops a running Docker Container on a container host server.")]
     public sealed class StopContainerOperation : DockerOperation_ForTheNew
     {

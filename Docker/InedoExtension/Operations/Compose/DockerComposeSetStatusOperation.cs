@@ -8,7 +8,6 @@ using Inedo.Web;
 
 namespace Inedo.Extensions.Docker.Operations.Compose
 {
-    [DisplayName("Set container status with Docker Compose")]
     [Description("Starts, restarts, stops, pauses, or resumes existing containers for a service.")]
     [ScriptAlias("Compose-SetStatus")]
     public sealed class DockerComposeSetStatusOperation : ComposeServicesOperationBase

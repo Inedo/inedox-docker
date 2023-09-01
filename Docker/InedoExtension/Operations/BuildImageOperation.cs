@@ -22,11 +22,8 @@ using Inedo.Web;
 
 namespace Inedo.Extensions.Docker.Operations
 {
-
-
     [ScriptAlias("Build-Image")]
     [ScriptNamespace("Docker")]
-    [DisplayName("Build Docker Image")]
     [Description("Builds a Docker image using a Dockerfile template and pushes it to the specified repository.")]
     public sealed partial class BuildImageOperation : DockerOperation_ForTheNew
     {
@@ -132,10 +129,10 @@ namespace Inedo.Extensions.Docker.Operations
 
                     this.LogDebug($"Loading Dockerfile template \"{this.DockerfileTemplate}\"...");
                     var item = SDK
-                        .GetRaftItems(RaftItemType24.BuildFile, context)
+                        .GetRaftItems(RaftItemType.BuildFile, context)
                         .FirstOrDefault(i => string.Equals(i.Name, this.DockerfileTemplate, System.StringComparison.CurrentCultureIgnoreCase))
                         ?? SDK
-                        .GetRaftItems(RaftItemType.TextTemplate, context)
+                        .GetRaftItems(RaftItemType.TextFile, context)
                         .FirstOrDefault(i => string.Equals(i.Name, this.DockerfileTemplate, System.StringComparison.CurrentCultureIgnoreCase))
                         ?? throw new ExecutionFailureException($"Dockerfile template \"{this.DockerfileTemplate}\" not found.");
 
@@ -148,7 +145,7 @@ namespace Inedo.Extensions.Docker.Operations
                 if (string.IsNullOrEmpty(repository))
                     throw new ExecutionFailureException($"Docker repository \"{this.RepositoryResourceName}\" has an unexpected name.");
 
-                var repositoryAndTag = $"{repository}:{this.Tag}";
+                var repositoryAndTag = $"{repository}:{this.Tag}".ToLower();
 
                 var buildArgs = new StringBuilder();
                 {

@@ -13,7 +13,6 @@ namespace Inedo.Extensions.Docker.Operations;
 
 [ScriptAlias("Execute-Command")]
 [ScriptNamespace("Docker")]
-[DisplayName("Executes a Docker Command")]
 [Description("Logs into a Docker registry and runs a Docker CLI command on a container host server.")]
 public sealed class DockerCommandOperation : DockerOperation
 {

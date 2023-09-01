@@ -7,7 +7,6 @@ using Inedo.Extensibility.Operations;
 
 namespace Inedo.Extensions.Docker.Operations.Compose
 {
-    [DisplayName("Update containers with Docker Compose")]
     [Description("Builds, (re)creates, and optionally starts containers for a Docker Compose project.")]
     [ScriptAlias("Compose-Up")]
     public sealed class DockerComposeUpOperation : ComposeServicesOperationBase

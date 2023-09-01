@@ -33,16 +33,15 @@ namespace Inedo.Extensions.Docker.Operations
         [Description("When Docker for Windows and Docker on WSL are installed on the same server, Docker for Windows is preferred. Setting this will force Docker (WSL)")]
         public bool UseWsl { get; set; }
 
-        private protected DockerRepository24 CreateRepository(ICredentialResolutionContext context, string repositoryResourceName, string repositoryNameOverride)
+        private protected DockerRepository CreateRepository(ICredentialResolutionContext context, string repositoryResourceName, string repositoryNameOverride)
         {
             if (string.IsNullOrEmpty(repositoryResourceName))
                 throw new ExecutionFailureException($"A Docker repository was not specified.");
 
-            var repository = DockerRepository24.Create(repositoryResourceName, context)
+            var repository = SecureResource.Create(SecureResourceType.DockerRepository, repositoryResourceName, context) as DockerRepository
                  ?? throw new ExecutionFailureException($"A Docker repository named \"{repositoryResourceName}\" was not found.");
 
-            if (/*repository is GenericDockerRepository genericDockerRepository*/
-                repository.IsContainerSource(out var genericDockerRepository))
+            if (repository is GenericDockerRepository genericDockerRepository)
             {
                 if (string.IsNullOrWhiteSpace(genericDockerRepository.Repository))
                 {
@@ -130,6 +129,8 @@ namespace Inedo.Extensions.Docker.Operations
 
         protected void LogBuildError(IOperationExecutionContext context, string text)
         {
+
+            bool error = false;
             if (text.StartsWith("#") && text.Contains(" ") && int.TryParse(text.Substring(1, text.IndexOf(' ') - 1), out var scopeNum))
             {
                 var message = text.Substring(text.IndexOf(' ') + 1);
@@ -151,6 +152,7 @@ namespace Inedo.Extensions.Docker.Operations
                 else if (firstWord == "ERROR")
                 {
                     level = MessageLevel.Error;
+                    error = true;
                     finished = true;
                 }
                 else
@@ -182,6 +184,10 @@ namespace Inedo.Extensions.Docker.Operations
             {
                 // a continuation of the previous non-build-process message
                 this.Log(this.LastLogLevel, text.TrimEnd('\r'));
+            }
+            if(error)
+            {
+                throw new ExecutionFailureException("Docker operation failed.");
             }
         }
 
@@ -230,18 +236,19 @@ namespace Inedo.Extensions.Docker.Operations
             await containerManager.DeactivateContainerAsync(containerId.Name, containerId.Tag, containerId.Source);
         }
 
-        protected async Task LoginAsync(IOperationExecutionContext context, string containerSource, bool logOutput = false)
+        protected async Task LoginAsync(IOperationExecutionContext context, string resourceName, bool logOutput = false)
         {
-            if (string.IsNullOrEmpty(containerSource))
+            if (string.IsNullOrEmpty(resourceName))
                 return;
 
-            var source = DockerRepository24.Create(containerSource, (IResourceResolutionContext)context);
+            var resource = SecureResource.Create(SecureResourceType.DockerRepository, resourceName, context) as DockerRepository
+                 ?? throw new ExecutionFailureException($"A Docker repository named \"{resourceName}\" was not found.");
 
-            var userpass = source.GetDockerCredentials((ICredentialResolutionContext)context);
+            var userpass = resource.GetDockerCredentials(context);
             if (userpass == null)
                 return;
 
-            var repositoryParts = source.GetRepository((ICredentialResolutionContext)context).Split('/');
+            var repositoryParts = resource.GetRepository(context).Split('/');
             if (repositoryParts.Length < 2)
                 return;
 
@@ -252,17 +259,18 @@ namespace Inedo.Extensions.Docker.Operations
 
             throw new ExecutionFailureException($"docker login returned code {output.ExitCode}:\n{string.Join("\n", output.Error)}");
         }
-        protected async Task LogoutAsync(IOperationExecutionContext context, string containerSource, bool logOutput = false)
+        protected async Task LogoutAsync(IOperationExecutionContext context, string resourceName, bool logOutput = false)
         {
-            if (string.IsNullOrEmpty(containerSource))
+            if (string.IsNullOrEmpty(resourceName))
                 return;
-            var source = DockerRepository24.Create(containerSource, (IResourceResolutionContext)context);
+            var resource = SecureResource.Create(SecureResourceType.DockerRepository, resourceName, context) as DockerRepository
+                 ?? throw new ExecutionFailureException($"A Docker repository named \"{resourceName}\" was not found.");
 
-            var userpass = source.GetDockerCredentials((ICredentialResolutionContext)context);
+            var userpass = resource.GetDockerCredentials(context);
             if (userpass == null)
                 return;
 
-            var repositoryParts = source.GetRepository((ICredentialResolutionContext)context).Split('/');
+            var repositoryParts = resource.GetRepository(context).Split('/');
             if (repositoryParts.Length < 2)
                 return;
 
@@ -346,9 +354,9 @@ namespace Inedo.Extensions.Docker.Operations
             public List<string> Error { get; }
         }
 
-        internal DockerRepository24 VerifyRepository(DockerRepository24 containerSource, string repositoryName)
+        internal DockerRepository VerifyRepository(DockerRepository containerSource, string repositoryName)
         {
-            if (containerSource.IsContainerSource(out var genericDockerRepository))
+            if (containerSource is GenericDockerRepository genericDockerRepository)
             {
                 if (string.IsNullOrWhiteSpace(genericDockerRepository.Repository))
                 {

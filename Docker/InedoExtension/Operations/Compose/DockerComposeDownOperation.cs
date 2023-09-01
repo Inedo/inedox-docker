@@ -6,7 +6,6 @@ using Inedo.Extensibility.Operations;
 
 namespace Inedo.Extensions.Docker.Operations.Compose
 {
-    [DisplayName("Remove containers with Docker Compose")]
     [Description("Stops containers and removes containers, networks, volumes, and images created by Docker::Compose-Up.")]
     [ScriptAlias("Compose-Down")]
     public sealed class DockerComposeDownOperation : ComposeOperationBase

@@ -14,7 +14,6 @@ namespace Inedo.Extensions.Docker.Operations
     [ScriptAlias("Tag")]
     [ScriptAlias("Tag-Image")]
     [ScriptNamespace("Docker")]
-    [DisplayName("Tag Docker Image")]
     [Description("Applies a new tag to a Docker image in the specified container source.")]
     public sealed class TagImageOperation : DockerOperation
     {
@@ -83,13 +82,13 @@ namespace Inedo.Extensions.Docker.Operations
             var originalRepository = originalRepoResource.GetRepository(context);
             if (string.IsNullOrEmpty(originalRepository))
                 throw new ExecutionFailureException($"Docker repository \"{this.RepositoryResourceName}\" has an unexpected name.");
-            var originalRepositoryAndTag = $"{originalRepository}:{this.OriginalTag}";
+            var originalRepositoryAndTag = $"{originalRepository}:{this.OriginalTag}".ToLower();
 
             var newRepoResource = this.CreateRepository(context, this.NewRepositoryResourceName, this.LegacyNewRepositoryName);
             var newRepository = newRepoResource.GetRepository(context);
             if (string.IsNullOrEmpty(newRepository))
                 throw new ExecutionFailureException($"Docker repository \"{this.NewRepositoryResourceName}\" has an unexpected name.");
-            var newRepositoryAndTag = $"{newRepository}:{this.NewTag}";
+            var newRepositoryAndTag = $"{newRepository}:{this.NewTag}".ToLower();
 
             var client = await DockerClientEx.CreateAsync(this, context);
             var esc = client.EscapeArg;

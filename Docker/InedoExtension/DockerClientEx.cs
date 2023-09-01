@@ -51,7 +51,7 @@ internal sealed class DockerClientEx
     }
     
 
-    public async Task LoginAsync(DockerRepository24 repoResource)
+    public async Task LoginAsync(DockerRepository repoResource)
     {
         if (repoResource == null)
             return;

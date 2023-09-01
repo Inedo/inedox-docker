@@ -17,7 +17,6 @@ namespace Inedo.Extensions.Docker.Operations;
 
 [ScriptAlias("Run-Container")]
 [ScriptNamespace("Docker")]
-[DisplayName("Run Docker Container")]
 [Description("Runs a Docker container on a container host server using a container configuration file.")]
 public sealed class RunContainerOperation : DockerOperation
 {
@@ -106,7 +105,7 @@ public sealed class RunContainerOperation : DockerOperation
 
         var dockerRunText = await getDockerRunTextAsync();
 
-        var repositoryAndTag = $"{repository}:{this.Tag}";
+        var repositoryAndTag = $"{repository}:{this.Tag}".ToLower();
 
         var client = await DockerClientEx.CreateAsync(this, context);
 

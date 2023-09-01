@@ -14,7 +14,7 @@ namespace Inedo.Extensions.Docker.SuggestionProviders
             var items = new List<string>();
             try
             {
-                items.AddRange(from t in SDK.GetRaftItems(RaftItemType24.BuildFile, config.EditorContext)
+                items.AddRange(from t in SDK.GetRaftItems(RaftItemType.BuildFile, config.EditorContext)
                                where t.Name.EndsWith("dockerfile", System.StringComparison.OrdinalIgnoreCase)
                                select t.Name);
             }
@@ -23,7 +23,7 @@ namespace Inedo.Extensions.Docker.SuggestionProviders
                 //ignore, here to use new raft item type, when exists
             }
 
-            items.AddRange(from t in SDK.GetRaftItems(RaftItemType.TextTemplate, config.EditorContext)
+            items.AddRange(from t in SDK.GetRaftItems(RaftItemType.TextFile, config.EditorContext)
                            select t.Name);
             return Task.FromResult(items.AsEnumerable());
         }

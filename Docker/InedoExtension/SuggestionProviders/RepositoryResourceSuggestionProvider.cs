@@ -13,11 +13,7 @@ internal sealed class RepositoryResourceSuggestionProvider : ISuggestionProvider
     public Task<IEnumerable<string>> GetSuggestionsAsync(IComponentConfiguration config)
     {
         return Task.FromResult(from resource in SDK.GetSecureResources(config.EditorContext as IResourceResolutionContext)
-
-#pragma warning disable CS0618 
-                            // where resource.InstanceType == typeof(DockerRepository)
-                               where resource.InstanceType == typeof(ContainerSource) || resource.InstanceType.Name == "DockerRepository"
-#pragma warning restore CS0618
+                               where resource.InstanceType == typeof(DockerRepository)
                                select resource.Name);
     }
 }

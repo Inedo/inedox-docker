@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Inedo.Agents;
 using Inedo.Diagnostics;
 using Inedo.Documentation;
+using Inedo.ExecutionEngine.Executer;
 using Inedo.Extensibility;
 using Inedo.Extensibility.Credentials;
 using Inedo.Extensibility.Operations;
@@ -18,7 +19,6 @@ namespace Inedo.Extensions.Docker.Operations
     [Undisclosed]
     [ScriptAlias("Assemble-Image")]
     [ScriptNamespace("Docker")]
-    [DisplayName("Assemble Docker Image")]
     [Description("A simplified version of Build Docker Image for when the full power of a Dockerfile is not required.")]
     public sealed class AssembleImageOperation : DockerOperation
     {
@@ -106,7 +106,8 @@ namespace Inedo.Extensions.Docker.Operations
                 var sourcePath = context.ResolvePath(this.SourceDirectory);
                 await fileOps.CreateDirectoryAsync(sourcePath);
 
-                var baseContainerSource = DockerRepository24.Create(this.BaseContainerSource, (IResourceResolutionContext)context);
+                var baseContainerSource = SecureResource.Create(SecureResourceType.DockerRepository, this.BaseContainerSource, context) as DockerRepository
+                    ?? throw new ExecutionFailureException($"Docker Repository Resource \"{this.BaseContainerSource}\" not found.");
                 baseContainerSource = VerifyRepository(baseContainerSource, this.BaseRepositoryName);
                 var baseId = new ContainerId(this.BaseContainerSource, baseContainerSource.GetRepository((ICredentialResolutionContext)context), this.BaseTag);
 
@@ -141,7 +142,8 @@ namespace Inedo.Extensions.Docker.Operations
                     await writer.FlushAsync();
                 }
 
-                var containerSource = DockerRepository24.Create(this.DockerRepository, (IResourceResolutionContext)context);
+                var containerSource = SecureResource.Create(SecureResourceType.DockerRepository, this.DockerRepository, context) as DockerRepository
+                    ?? throw new ExecutionFailureException($"Docker Repository Resource \"{this.BaseContainerSource}\" not found.");
                 containerSource = VerifyRepository(containerSource, this.RepositoryName);
                 var containerId = new ContainerId(this.DockerRepository, containerSource.GetRepository((ICredentialResolutionContext)context), this.Tag);
 

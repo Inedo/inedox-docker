@@ -1,6 +1,7 @@
 ﻿using System.ComponentModel;
 using Inedo.Diagnostics;
 using Inedo.Documentation;
+using Inedo.ExecutionEngine.Executer;
 using Inedo.Extensibility;
 using Inedo.Extensibility.Credentials;
 using Inedo.Extensibility.SecureResources;
@@ -36,14 +37,15 @@ namespace Inedo.Extensions.Docker.VariableFunctions
 
         private string AssembleImageName(IVariableFunctionContext context)
         {
-            var containerSource = DockerRepository24.Create(this.DockerRepository, (IResourceResolutionContext)context);
+            var containerSource = SecureResource.Create(SecureResourceType.DockerRepository, this.DockerRepository, (IResourceResolutionContext)context)
+                as DockerRepository ?? throw new ExecutionFailureException($"Docker Repository Resource \"{this.DockerRepository}\" not found.");
             containerSource = this.VerifyRepository(containerSource, this.RepositoryName);
             var containerId = new ContainerId(this.DockerRepository, containerSource.GetRepository((ICredentialResolutionContext)context), this.Tag);
             return containerId.FullName;
         }
-        private DockerRepository24 VerifyRepository(DockerRepository24 containerSource, string repositoryName)
+        private DockerRepository VerifyRepository(DockerRepository containerSource, string repositoryName)
         {
-            if (containerSource.IsContainerSource(out var genericDockerRepository))
+            if (containerSource is GenericDockerRepository genericDockerRepository)
             {
                 if (string.IsNullOrWhiteSpace(genericDockerRepository.Repository))
                 {

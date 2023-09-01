@@ -8,7 +8,6 @@ using Inedo.Web;
 
 namespace Inedo.Extensions.Docker.Operations.Compose
 {
-    [DisplayName("Run command in Docker Compose")]
     [Description("Runs an arbitrary docker-compose command.")]
     [ScriptAlias("Compose-Command")]
     public sealed class DockerComposeCommandOperation : ComposeOperationBase
