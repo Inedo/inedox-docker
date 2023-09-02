@@ -2,27 +2,23 @@
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using Inedo.Agents;
-using Inedo.Diagnostics;
 using Inedo.Documentation;
 using Inedo.ExecutionEngine;
 using Inedo.ExecutionEngine.Executer;
 using Inedo.Extensibility;
 using Inedo.Extensibility.Operations;
 
-
 namespace Inedo.Extensions.Docker.Operations
 {
     [ScriptAlias("Docker-Exec")]
     [ScriptNamespace("Docker")]
     [Description("Attaches and runs a command in an already running container")]
-    public class DockerExecOperation : DockerOperation
+    public sealed class DockerExecOperation : DockerOperation
     {
         [DisplayName("Container name")]
         [ScriptAlias("ContainerName")]
         [DefaultValue("default (based on $DockerRepository)")]
         public string ContainerName { get; set; }
-
 
         [Required]
         [DisplayName("Command")]
@@ -74,7 +70,7 @@ namespace Inedo.Extensions.Docker.Operations
             if (this.RunInBackground ?? false)
                 args.Append("--detach ");
             if (this.Interactive ?? true)
-                args.Append("-it ");
+                args.Append("-i ");
             if (!string.IsNullOrWhiteSpace(this.WorkDir))
                 args.Append($"--workdir {escapeArg(this.WorkDir)} ");
 
@@ -95,7 +91,6 @@ namespace Inedo.Extensions.Docker.Operations
                     new Hilite(config[nameof(Command)]),
                     " on running container named ",
                     new Hilite(config[nameof(ContainerName)])
-
                 )
             );
         }
