@@ -20,7 +20,8 @@ namespace Inedo.Extensions.Docker.Operations
         [ScriptAlias("ContainerName")]
         [ScriptAlias("Container")]
         [DisplayName("Container name")]
-        [DefaultValue("default (based on $DockerRepository)")]
+        [PlaceholderText("default (based on $DockerRepository)")]
+        [DefaultValue("$DockerRepository")]
         public string? ContainerName { get; set; }
         [ScriptAlias("Remove")]
         [DisplayName("Remove after stop")]
