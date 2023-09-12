@@ -69,8 +69,22 @@ internal sealed class DockerClientEx
         var repositoryParts = repository.Split('/');
         if (repositoryParts.Length < 2)
             throw new ExecutionFailureException($"Docker repository specified an invalid repository format: \"{repository}\"");
-
-        await this.client.DockerLoginAsync(repositoryParts[0], userpass.UserName, AH.Unprotect(userpass.Password), context.CancellationToken);
+        try
+        {
+            await this.client.DockerLoginAsync(repositoryParts[0], userpass.UserName, AH.Unprotect(userpass.Password), context.CancellationToken);
+        }
+        catch(DockerException ex)
+        {
+            // login invalid
+            // not in sudoers
+            // insecure registry
+            // cannot reach host
+            context.Log.LogInformation($"[TIP] Failed to login to Docker registry \"{repositoryParts[0]}\" with exit code {ex.ExitCode}. " +
+                "Please make sure that the docker CLI has been added to the sudoers group in your Linux OS. " +
+                "If the registry is not configured to use a valid SSL certificate (HTTP only or a self-signed certificate), make sure the registry is added as a insecure registry in the Docker daemon configuration. " +
+                $"Lastly, verify that the Docker CLI can access the {repositoryParts[0]} registry and has valid credentials.");
+            context.Log.LogError($"Failed to login to Docker registry \"{repositoryParts[0]}\" with exit code {ex.ExitCode}");
+        }
     }
     public Task LogoutAsync() => client.DockerLogoutAsync(this.context.CancellationToken);
 
