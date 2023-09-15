@@ -1,4 +1,5 @@
-﻿using System.ComponentModel;
+﻿using System;
+using System.ComponentModel;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -109,7 +110,7 @@ public sealed class RunContainerOperation : DockerOperation
 
         var client = await DockerClientEx.CreateAsync(this, context);
 
-        if(repoResource != null)
+        if (repoResource != null)
             await client.LoginAsync(repoResource);
         try
         {
@@ -146,7 +147,56 @@ public sealed class RunContainerOperation : DockerOperation
             if (!await deployer.WriteAsync(writer, this.DockerRunConfig, this.DockerRunConfigInstance, this))
                 throw new ExecutionFailureException("Error reading Docker Run Config.");
 
-            return Regex.Replace(writer.ToString(), @"\r?\n", " ");
+            var configText = new StringBuilder();
+            foreach (var config in Regex.Split(writer.ToString(), @"\r?\n", RegexOptions.IgnoreCase))
+            {
+                if (string.IsNullOrWhiteSpace(config))
+                    continue;
+
+                if (config.StartsWith("-v ", StringComparison.OrdinalIgnoreCase))
+                {
+                    configText.Append($"-v {client.EscapeArg(config.Substring(3))} ");
+                }
+                else if (config.StartsWith("-l ", StringComparison.OrdinalIgnoreCase))
+                {
+                    configText.Append($"-l {client.EscapeArg(config.Substring(3))} ");
+                }
+                else if (config.StartsWith("-p ", StringComparison.OrdinalIgnoreCase))
+                {
+                    configText.Append($"{config} ");
+                }
+                else if (config.StartsWith("-e ", StringComparison.OrdinalIgnoreCase))
+                {
+                    configText.Append($"-e {client.EscapeArg(config.Substring(3))} ");
+                }
+                else if (config.StartsWith("--cpus=", StringComparison.OrdinalIgnoreCase))
+                {
+                    configText.Append($"--cpus={client.EscapeArg(config.Substring(7))} ");
+                }
+                else if (config.StartsWith("--memory=", StringComparison.OrdinalIgnoreCase))
+                {
+                    configText.Append($"--memory={client.EscapeArg(config.Substring(9))} ");
+                }
+                else if (config.StartsWith("--gpus ", StringComparison.OrdinalIgnoreCase))
+                {
+                    configText.Append($"--gpus {client.EscapeArg(config.Substring(7))} ");
+                }
+                else
+                {
+                    throw new ExecutionFailureException($"Invalid Docker Run Configuration '{config.Split(' ')[0]}'");
+                }
+
+            }
+            return configText.ToString();
+
+            string? getSplitCharacter(string type)
+            {
+                if (type == "-e")
+                    return "=";
+                else if (type == "--memory" || type == "--cpus" || type == "--gpus")
+                    return null;
+                return ":";
+            }
         }
     }
 
