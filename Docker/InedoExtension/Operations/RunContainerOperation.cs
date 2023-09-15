@@ -156,11 +156,13 @@ public sealed class RunContainerOperation : DockerOperation
 
                 if (config.StartsWith("-v ", StringComparison.OrdinalIgnoreCase))
                 {
-                    configText.Append($"-v {client.EscapeArg(config.Substring(3))} ");
+                    //configText.Append($"-v {client.EscapeArg(config.Substring(3))} ");
+                    configText.Append($"{config} ");
                 }
                 else if (config.StartsWith("-l ", StringComparison.OrdinalIgnoreCase))
                 {
-                    configText.Append($"-l {client.EscapeArg(config.Substring(3))} ");
+                    //configText.Append($"-l {client.EscapeArg(config.Substring(3))} ");
+                    configText.Append($"{config} ");
                 }
                 else if (config.StartsWith("-p ", StringComparison.OrdinalIgnoreCase))
                 {
@@ -168,19 +170,23 @@ public sealed class RunContainerOperation : DockerOperation
                 }
                 else if (config.StartsWith("-e ", StringComparison.OrdinalIgnoreCase))
                 {
-                    configText.Append($"-e {client.EscapeArg(config.Substring(3))} ");
+                    //configText.Append($"-e {client.EscapeArg(config.Substring(3))} ");
+                    configText.Append($"{config} ");
                 }
                 else if (config.StartsWith("--cpus=", StringComparison.OrdinalIgnoreCase))
                 {
-                    configText.Append($"--cpus={client.EscapeArg(config.Substring(7))} ");
+                    //configText.Append($"--cpus={client.EscapeArg(config.Substring(7))} ");
+                    configText.Append($"{config} ");
                 }
                 else if (config.StartsWith("--memory=", StringComparison.OrdinalIgnoreCase))
                 {
-                    configText.Append($"--memory={client.EscapeArg(config.Substring(9))} ");
+                    //configText.Append($"--memory={client.EscapeArg(config.Substring(9))} ");
+                    configText.Append($"{config} ");
                 }
                 else if (config.StartsWith("--gpus ", StringComparison.OrdinalIgnoreCase))
                 {
-                    configText.Append($"--gpus {client.EscapeArg(config.Substring(7))} ");
+                    //configText.Append($"--gpus {client.EscapeArg(config.Substring(7))} ");
+                    configText.Append($"{config} ");
                 }
                 else
                 {
@@ -189,15 +195,6 @@ public sealed class RunContainerOperation : DockerOperation
 
             }
             return configText.ToString();
-
-            string? getSplitCharacter(string type)
-            {
-                if (type == "-e")
-                    return "=";
-                else if (type == "--memory" || type == "--cpus" || type == "--gpus")
-                    return null;
-                return ":";
-            }
         }
     }
 
