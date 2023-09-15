@@ -104,11 +104,12 @@ public sealed class RunContainerOperation : DockerOperation
         if (string.IsNullOrEmpty(this.ContainerName))
             this.ContainerName = repository.Split('/').Last();
 
-        var dockerRunText = await getDockerRunTextAsync();
 
         var repositoryAndTag = $"{repository}:{this.Tag}".ToLower();
 
         var client = await DockerClientEx.CreateAsync(this, context);
+
+        var dockerRunText = await getDockerRunTextAsync();
 
         if (repoResource != null)
             await client.LoginAsync(repoResource);
