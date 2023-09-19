@@ -5,6 +5,8 @@ using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using Inedo.Agents;
+using Inedo.Diagnostics;
 using Inedo.Documentation;
 using Inedo.ExecutionEngine.Executer;
 using Inedo.Extensibility;
@@ -143,6 +145,8 @@ public sealed class RunContainerOperation : DockerOperation
 
             var deployer = (await context.TryGetServiceAsync<IConfigurationFileDeployer>())
                 ?? throw new ExecutionFailureException("Configuration files are not supported in this context.");
+            var fileOps = await context.TryGetServiceAsync<IFileOperationsExecuter>();
+            var isLinux = (fileOps?.DirectorySeparator ?? '/') == '/';
 
             using var writer = new StringWriter();
             if (!await deployer.WriteAsync(writer, this.DockerRunConfig, this.DockerRunConfigInstance, this))
@@ -156,37 +160,31 @@ public sealed class RunContainerOperation : DockerOperation
 
                 if (config.StartsWith("-v ", StringComparison.OrdinalIgnoreCase))
                 {
-                    //configText.Append($"-v {client.EscapeArg(config.Substring(3))} ");
-                    configText.Append($"{config} ");
+                    configText.Append($"-v {escapeParameter(config, 3, ':', true)} ");
                 }
                 else if (config.StartsWith("-l ", StringComparison.OrdinalIgnoreCase))
                 {
-                    //configText.Append($"-l {client.EscapeArg(config.Substring(3))} ");
-                    configText.Append($"{config} ");
+                    configText.Append($"-l {escapeParameter(config, 3, ':', true)} ");
+                }
+                else if (config.StartsWith("-e ", StringComparison.OrdinalIgnoreCase))
+                {
+                    configText.Append($"-e {escapeParameter(config, 3, '=')} ");
                 }
                 else if (config.StartsWith("-p ", StringComparison.OrdinalIgnoreCase))
                 {
                     configText.Append($"{config} ");
                 }
-                else if (config.StartsWith("-e ", StringComparison.OrdinalIgnoreCase))
-                {
-                    //configText.Append($"-e {client.EscapeArg(config.Substring(3))} ");
-                    configText.Append($"{config} ");
-                }
                 else if (config.StartsWith("--cpus=", StringComparison.OrdinalIgnoreCase))
                 {
-                    //configText.Append($"--cpus={client.EscapeArg(config.Substring(7))} ");
-                    configText.Append($"{config} ");
+                    configText.Append($"--cpus={escapeString(config, 7)} ");
                 }
                 else if (config.StartsWith("--memory=", StringComparison.OrdinalIgnoreCase))
                 {
-                    //configText.Append($"--memory={client.EscapeArg(config.Substring(9))} ");
-                    configText.Append($"{config} ");
+                    configText.Append($"--memory={escapeString(config, 9)} ");
                 }
                 else if (config.StartsWith("--gpus ", StringComparison.OrdinalIgnoreCase))
                 {
-                    //configText.Append($"--gpus {client.EscapeArg(config.Substring(7))} ");
-                    configText.Append($"{config} ");
+                    configText.Append($"--gpus {escapeString(config, 7)} ");
                 }
                 else
                 {
@@ -195,6 +193,49 @@ public sealed class RunContainerOperation : DockerOperation
 
             }
             return configText.ToString();
+
+            string escapeParameter(string config, int startIndex, char splitOn, bool onlyOnWhitespace = false)
+            {
+                var param = verifyCharacters(config, startIndex);
+                var splitIndex = param.IndexOf(splitOn);
+
+                if (splitIndex < 0)
+                    return param;
+                
+                var key = param.Substring(0, splitIndex);
+                var value = param.Substring(splitIndex + 1);
+
+                if (value == null || AH.ParseInt(value) != null ||  value.StartsWith("\""))
+                    return param;
+
+                if(onlyOnWhitespace && !Regex.IsMatch(value, @".*\s+.*"))
+                    return param;
+
+                return $"{key}{splitOn}\"{Regex.Replace(value, @"(?<!\\)((?:\\\\)*)("")", "$1\\\"")}\"";
+            }
+
+            string escapeString(string config, int startIndex)
+            {
+                var param = verifyCharacters(config, startIndex);
+
+                if (Regex.IsMatch(param, @".*\s+.*") && !Regex.IsMatch(param, @"[""'].*\s.*[""']"))
+                    return $"\"{Regex.Replace(param, @"(?<!\\)((?:\\\\)*)("")", "$1\\\"")}\"";
+
+                return verifyCharacters(config, startIndex);
+            }
+
+            string verifyCharacters(string config, int startIndex)
+            {
+                var param = config.Substring(startIndex);
+
+                if (param != null && (
+                    Regex.IsMatch(param, @"(?<!\\)((?:\\\\)*)([\^\$\|\?\&\!])") 
+                    || (Regex.IsMatch(param, @".*\s+.*") && !Regex.IsMatch(param, @"[""'].*\s.*[""']"))
+                ))
+                    this.LogInformation($"\"{config}\" contains a special character that has not been escaped.");
+
+                return param ?? string.Empty;
+            }
         }
     }
 
