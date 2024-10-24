@@ -4,7 +4,7 @@ using Inedo.Extensibility;
 [assembly: AssemblyTitle("Docker")]
 [assembly: AssemblyDescription("Provides operations that act on Docker and Docker Compose.")]
 [assembly: AssemblyCompany("Inedo, LLC.")]
-[assembly: AssemblyCopyright("Copyright © Inedo 2018")]
+[assembly: AssemblyCopyright("Copyright © Inedo 2024")]
 [assembly: AssemblyProduct("any")]
 
 // Not for ProGet
@@ -12,5 +12,5 @@ using Inedo.Extensibility;
 
 [assembly: ScriptNamespace("Docker")]
 
-[assembly: AssemblyVersion("2.4.0")]
-[assembly: AssemblyFileVersion("2.4.0")]
+[assembly: AssemblyVersion("3.1.0")]
+[assembly: AssemblyFileVersion("3.1.0")]
