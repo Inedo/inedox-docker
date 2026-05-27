@@ -37,14 +37,12 @@ public sealed class RunContainerOperation : DockerOperation
     [DisplayName("Docker Run Config")]
     [ScriptAlias("DockerRunConfig")]
     [ScriptAlias("ConfigFileName", Obsolete = true)]
-    [SuggestableValue(typeof(ConfigurationSuggestionProvider))]
     [DefaultValue("DockerRun")]
     public string? DockerRunConfig { get; set; }
     [Category("Run Config")]
     [DisplayName("Docker Run Config instance")]
     [ScriptAlias("DockerRunConfigInstance")]
     [ScriptAlias("ConfigFileInstanceName", Obsolete = true)]
-    [SuggestableValue(typeof(ConfigurationInstanceSuggestionProvider))]
     [DefaultValue("$PipelineStageName")]
     public string? DockerRunConfigInstance { get; set; }
 
