@@ -1,4 +1,5 @@
-﻿using System.ComponentModel;
+﻿using System;
+using System.ComponentModel;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -10,6 +11,8 @@ using Inedo.Extensibility.Operations;
 
 namespace Inedo.Extensions.Docker.Operations
 {
+    [Undisclosed]
+    [Obsolete("Use Docker::Run-Container instead.")]
     [ScriptAlias("Docker-Exec")]
     [ScriptNamespace("Docker")]
     [Description("Attaches and runs a command in an already running container")]
