@@ -1,6 +1,4 @@
-﻿#nullable enable
-
-using System.ComponentModel;
+﻿using System.ComponentModel;
 using System.Threading.Tasks;
 using Inedo.Diagnostics;
 using Inedo.Documentation;
@@ -10,12 +8,14 @@ using Inedo.Extensibility.Operations;
 using Inedo.Extensions.Docker.SuggestionProviders;
 using Inedo.Web;
 
+#nullable enable
+
 namespace Inedo.Extensions.Docker.Operations;
 
 [ScriptAlias("Logout")]
 [ScriptNamespace("Docker")]
 [Description("Executes Docker logout on the selected Docker Repository.")]
-public sealed class DockerLogoutOperation : DockerOperation
+public sealed class DockerLogoutOperation : DockerOperation_ForTheNew
 {
     [ScriptAlias("Repository")]
     [DisplayName("Repository")]
