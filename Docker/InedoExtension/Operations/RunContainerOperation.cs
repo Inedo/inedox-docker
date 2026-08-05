@@ -1,15 +1,6 @@
-﻿using System;
-using System.ComponentModel;
-using System.IO;
-using System.Linq;
-using System.Text;
-using System.Text.RegularExpressions;
-using System.Threading.Tasks;
+﻿using System.Text;
 using Inedo.Agents;
-using Inedo.Diagnostics;
-using Inedo.Documentation;
 using Inedo.ExecutionEngine.Executer;
-using Inedo.Extensibility;
 using Inedo.Extensibility.Operations;
 using Inedo.Extensions.Docker.SuggestionProviders;
 using Inedo.Web;
@@ -18,7 +9,8 @@ using Inedo.Web;
 
 namespace Inedo.Extensions.Docker.Operations;
 
-[ScriptAlias("Run-Container")]
+[ScriptAlias("Run")]
+[ScriptAlias("Run-Container", Obsolete = true)]
 [ScriptNamespace("Docker")]
 [Description("Runs a Docker container on a container host server using a container configuration file.")]
 public sealed class RunContainerOperation : DockerOperation
@@ -143,97 +135,38 @@ public sealed class RunContainerOperation : DockerOperation
 
             var deployer = (await context.TryGetServiceAsync<IConfigurationFileDeployer>())
                 ?? throw new ExecutionFailureException("Configuration files are not supported in this context.");
-            var fileOps = await context.TryGetServiceAsync<IFileOperationsExecuter>();
-            var isLinux = (fileOps?.DirectorySeparator ?? '/') == '/';
 
             using var writer = new StringWriter();
             if (!await deployer.WriteAsync(writer, this.DockerRunConfig, this.DockerRunConfigInstance, this))
                 throw new ExecutionFailureException("Error reading Docker Run Config.");
 
+            var exec = await context.Agent.GetServiceAsync<IRemoteProcessExecuter>();
+
             var configText = new StringBuilder();
-            foreach (var config in Regex.Split(writer.ToString(), @"\r?\n", RegexOptions.IgnoreCase))
+            foreach (var config in writer.ToString().Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
             {
                 if (string.IsNullOrWhiteSpace(config))
                     continue;
 
                 if (config.StartsWith("-v ", StringComparison.OrdinalIgnoreCase))
-                {
-                    configText.Append($"-v {escapeParameter(config, 3, ':', true)} ");
-                }
+                    configText.Append($"-v {exec.EscapeArg(config[3..].Trim())} ");
                 else if (config.StartsWith("-l ", StringComparison.OrdinalIgnoreCase))
-                {
-                    configText.Append($"-l {escapeParameter(config, 3, ':', true)} ");
-                }
+                    configText.Append($"-l {exec.EscapeArg(config[3..].Trim())} ");
                 else if (config.StartsWith("-e ", StringComparison.OrdinalIgnoreCase))
-                {
-                    configText.Append($"-e {escapeParameter(config, 3, '=')} ");
-                }
+                    configText.Append($"-e {exec.EscapeArg(config[3..].Trim())} ");
                 else if (config.StartsWith("-p ", StringComparison.OrdinalIgnoreCase))
-                {
                     configText.Append($"{config} ");
-                }
                 else if (config.StartsWith("--cpus=", StringComparison.OrdinalIgnoreCase))
-                {
-                    configText.Append($"--cpus={escapeString(config, 7)} ");
-                }
+                    configText.Append($"--cpus={exec.EscapeArg(config[7..].Trim())} ");
                 else if (config.StartsWith("--memory=", StringComparison.OrdinalIgnoreCase))
-                {
-                    configText.Append($"--memory={escapeString(config, 9)} ");
-                }
+                    configText.Append($"--memory={exec.EscapeArg(config[9..].Trim())} ");
                 else if (config.StartsWith("--gpus ", StringComparison.OrdinalIgnoreCase))
-                {
-                    configText.Append($"--gpus {escapeString(config, 7)} ");
-                }
+                    configText.Append($"--gpus {exec.EscapeArg(config[7..].Trim())} ");
                 else
-                {
                     throw new ExecutionFailureException($"Invalid Docker Run Configuration '{config.Split(' ')[0]}'");
-                }
-
             }
+
             return configText.ToString();
-
-            string escapeParameter(string config, int startIndex, char splitOn, bool onlyOnWhitespace = false)
-            {
-                var param = verifyCharacters(config, startIndex);
-                var splitIndex = param.IndexOf(splitOn);
-
-                if (splitIndex < 0)
-                    return param;
-                
-                var key = param.Substring(0, splitIndex);
-                var value = param.Substring(splitIndex + 1);
-
-                if (value == null || AH.ParseInt(value) != null ||  value.StartsWith("\""))
-                    return param;
-
-                if(onlyOnWhitespace && !Regex.IsMatch(value, @".*\s+.*"))
-                    return param;
-
-                return $"{key}{splitOn}\"{Regex.Replace(value, @"(?<!\\)((?:\\\\)*)("")", "$1\\\"")}\"";
-            }
-
-            string escapeString(string config, int startIndex)
-            {
-                var param = verifyCharacters(config, startIndex);
-
-                if (Regex.IsMatch(param, @".*\s+.*") && !Regex.IsMatch(param, @"[""'].*\s.*[""']"))
-                    return $"\"{Regex.Replace(param, @"(?<!\\)((?:\\\\)*)("")", "$1\\\"")}\"";
-
-                return verifyCharacters(config, startIndex);
-            }
-
-            string verifyCharacters(string config, int startIndex)
-            {
-                var param = config.Substring(startIndex);
-
-                if (param != null && (
-                    Regex.IsMatch(param, @"(?<!\\)((?:\\\\)*)([\^\$\|\?\&\!])") 
-                    || (Regex.IsMatch(param, @".*\s+.*") && !Regex.IsMatch(param, @"[""'].*\s.*[""']"))
-                ))
-                    this.LogInformation($"\"{config}\" contains a special character that has not been escaped.");
-
-                return param ?? string.Empty;
-            }
         }
     }
 

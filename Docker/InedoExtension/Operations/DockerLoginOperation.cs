@@ -15,7 +15,7 @@ namespace Inedo.Extensions.Docker.Operations;
 [ScriptAlias("Login")]
 [ScriptNamespace("Docker")]
 [Description("Executes Docker login on the selected Docker Repository.")]
-public sealed class DockerLoginOperation : DockerOperation_ForTheNew
+public sealed class DockerLoginOperation : DockerOperation
 {
     [ScriptAlias("Repository")]
     [DisplayName("Repository")]

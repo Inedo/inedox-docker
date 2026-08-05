@@ -1,21 +1,12 @@
-﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Text;
 using Inedo.Agents;
 using Inedo.Diagnostics;
 using Inedo.Docker;
-using Inedo.Documentation;
 using Inedo.ExecutionEngine;
 using Inedo.ExecutionEngine.Executer;
-using Inedo.Extensibility;
-using Inedo.Extensibility.Credentials;
 using Inedo.Extensibility.Operations;
 using Inedo.Extensibility.RaftRepositories;
 using Inedo.Extensions.Docker.SuggestionProviders;
-using Inedo.Extensions.SecureResources;
 using Inedo.IO;
 using Inedo.Web;
 
@@ -26,7 +17,7 @@ namespace Inedo.Extensions.Docker.Operations;
 [ScriptAlias("Build-Image")]
 [ScriptNamespace("Docker")]
 [Description("Builds a Docker image using a Dockerfile template and pushes it to the specified repository.")]
-public sealed partial class BuildImageOperation : DockerOperation_ForTheNew
+public sealed partial class BuildImageOperation : DockerOperation
 {
     [ScriptAlias("From")]
     [DisplayName("From")]
@@ -50,7 +41,7 @@ public sealed partial class BuildImageOperation : DockerOperation_ForTheNew
     [SuggestableValue(typeof(DockerfileSuggestionProvider))]
     public string? DockerfileTemplate { get; set; }
 
-    [Obsolete]
+    [Undisclosed]
     [Category("Dockerfile template")]
     [ScriptAlias("DockerfileVariables")]
     [ScriptAlias("TemplateArguments")]
@@ -59,7 +50,7 @@ public sealed partial class BuildImageOperation : DockerOperation_ForTheNew
     [PlaceholderText("eg. %(name: value, ...)")]
     public IDictionary<string, RuntimeValue>? TemplateArguments { get; set; }
 
-    [Obsolete]
+    [Undisclosed]
     [Category("Legacy")]
     [ScriptAlias("RepositoryName")]
     [DisplayName("Override repository name")]

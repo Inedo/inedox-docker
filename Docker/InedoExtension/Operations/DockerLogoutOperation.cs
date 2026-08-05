@@ -15,7 +15,7 @@ namespace Inedo.Extensions.Docker.Operations;
 [ScriptAlias("Logout")]
 [ScriptNamespace("Docker")]
 [Description("Executes Docker logout on the selected Docker Repository.")]
-public sealed class DockerLogoutOperation : DockerOperation_ForTheNew
+public sealed class DockerLogoutOperation : DockerOperation
 {
     [ScriptAlias("Repository")]
     [DisplayName("Repository")]

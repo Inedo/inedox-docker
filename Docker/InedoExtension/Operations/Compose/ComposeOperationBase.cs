@@ -16,7 +16,7 @@ namespace Inedo.Extensions.Docker.Operations.Compose
 {
     [DefaultProperty(nameof(ProjectName))]
     [Tag("docker-compose")]
-    public abstract class ComposeOperationBase : DockerOperation_ForTheNew
+    public abstract class ComposeOperationBase : DockerOperation
     {
         protected virtual string Command => null;
 

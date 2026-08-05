@@ -1,12 +1,7 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Threading;
-using System.Threading.Tasks;
-using Inedo.Agents;
+﻿using Inedo.Agents;
 using Inedo.Diagnostics;
 using Inedo.Docker;
 using Inedo.ExecutionEngine.Executer;
-using Inedo.Extensibility;
 using Inedo.Extensibility.Operations;
 using Inedo.Extensions.Docker.Operations;
 using Inedo.Extensions.SecureResources;
@@ -14,6 +9,7 @@ using Inedo.Extensions.SecureResources;
 #nullable enable
 
 namespace Inedo.Extensions.Docker;
+
 internal sealed class DockerClientEx
 {
     private readonly DockerClient client;
@@ -29,7 +25,7 @@ internal sealed class DockerClientEx
         this.context = context;
         this.escapeArg = escapeArg;
     }
-    public static async Task<DockerClientEx> CreateAsync(DockerOperation_ForTheNew operation, IOperationExecutionContext context)
+    public static async Task<DockerClientEx> CreateAsync(DockerOperation operation, IOperationExecutionContext context)
     {
         DockerClient client;
         if (string.IsNullOrEmpty(operation.DockerExePath) || operation.DockerExePath == "docker")
@@ -49,7 +45,7 @@ internal sealed class DockerClientEx
 
         return new(client, context, (await context.Agent.GetServiceAsync<IRemoteProcessExecuter>()).EscapeArg);
     }
-    
+
 
     public async Task LoginAsync(DockerRepository repoResource)
     {
@@ -73,7 +69,7 @@ internal sealed class DockerClientEx
         {
             await this.client.DockerLoginAsync(repositoryParts[0], userpass.UserName, AH.Unprotect(userpass.Password), context.CancellationToken);
         }
-        catch(DockerException ex)
+        catch (DockerException ex)
         {
             // login invalid
             // not in sudoers
@@ -86,13 +82,13 @@ internal sealed class DockerClientEx
             context.Log.LogError($"Failed to login to Docker registry \"{repositoryParts[0]}\" with exit code {ex.ExitCode}");
         }
     }
-    
+
 
     public async Task LogoutAsync(DockerRepository repoResource)
     {
         if (repoResource == null)
             return;
-        
+
         var repository = repoResource.GetRepository(context)
             ?? throw new ExecutionFailureException($"Docker repository did not specify a usable repository name.");
 
@@ -104,7 +100,7 @@ internal sealed class DockerClientEx
         {
             await this.client.DockerLogoutAsync(repositoryParts[0], context.CancellationToken);
         }
-        catch(DockerException ex)
+        catch (DockerException ex)
         {
             context.Log.LogError($"Failed to logout of Docker registry \"{repositoryParts[0]}\" with exit code {ex.ExitCode}");
         }
@@ -119,7 +115,7 @@ internal sealed class DockerClientEx
 
         this.context.Log.LogDebug("Executing docker " + args);
         var exitCode = await this.client.DockerAsync(
-            args, 
+            args,
             this.context.Log.LogInformation,
             failOnErrors
                 ? (processBuildErrors ? LogBuildError : this.context.Log.LogError)
@@ -187,8 +183,6 @@ internal sealed class DockerClientEx
                 this.context.Log.Log(lastLogLevel, text.TrimEnd('\r'));
             }
         }
-
-
     }
 
     public Task<string> GetDigestAsync(string repositoryAndTag) => this.client.GetDigestAsync(repositoryAndTag, this.context.CancellationToken);

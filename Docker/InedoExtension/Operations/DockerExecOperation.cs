@@ -1,101 +1,96 @@
-﻿using System;
-using System.ComponentModel;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Inedo.Documentation;
+﻿using System.Text;
+using Inedo.Agents;
 using Inedo.ExecutionEngine;
 using Inedo.ExecutionEngine.Executer;
-using Inedo.Extensibility;
 using Inedo.Extensibility.Operations;
 
-namespace Inedo.Extensions.Docker.Operations
+#nullable enable
+
+namespace Inedo.Extensions.Docker.Operations;
+
+[ScriptAlias("Exec")]
+[ScriptAlias("Docker-Exec", Obsolete = true)]
+[ScriptNamespace("Docker")]
+[Description("Attaches and runs a command in an already running container")]
+public sealed class DockerExecOperation : DockerOperation
 {
-    [Undisclosed]
-    [Obsolete("Use Docker::Run-Container instead.")]
-    [ScriptAlias("Docker-Exec")]
-    [ScriptNamespace("Docker")]
-    [Description("Attaches and runs a command in an already running container")]
-    public sealed class DockerExecOperation : DockerOperation
+    [DisplayName("Container name")]
+    [ScriptAlias("ContainerName")]
+    [DefaultValue("default (based on $DockerRepository)")]
+    public string? ContainerName { get; set; }
+
+    [Required]
+    [DisplayName("Command")]
+    [ScriptAlias("Command")]
+    [PlaceholderText("eg. sh -c \"echo a && echo b\"")]
+    public string? Command { get; set; }
+
+    [DisplayName("Working directory in container")]
+    [ScriptAlias("WorkDir")]
+    public string? WorkDir { get; set; }
+
+    [DisplayName("Log output (interactive)")]
+    [ScriptAlias("Interactive")]
+    [Description("Keep stdin open even if not attached")]
+    [DefaultValue(true)]
+    public bool? Interactive { get; set; }
+
+    [DisplayName("Run in background (detach)")]
+    [ScriptAlias("RunInBackground")]
+    [Description("Detached mode: run command in the background")]
+    [DefaultValue(false)]
+    public bool? RunInBackground { get; set; }
+
+    [ScriptAlias("AdditionalArguments")]
+    [DisplayName("Addtional arguments")]
+    [Description("Additional arguments for the docker CLI exec command, such as --env key=value")]
+    public string? AdditionalArguments { get; set; }
+
+    public override async Task ExecuteAsync(IOperationExecutionContext context)
     {
-        [DisplayName("Container name")]
-        [ScriptAlias("ContainerName")]
-        [DefaultValue("default (based on $DockerRepository)")]
-        public string ContainerName { get; set; }
-
-        [Required]
-        [DisplayName("Command")]
-        [ScriptAlias("Command")]
-        [PlaceholderText("eg. sh -c \"echo a && echo b\"")]
-        public string Command { get; set; }
-
-        [DisplayName("Working directory in container")]
-        [ScriptAlias("WorkDir")]
-        public string WorkDir { get; set; }
-
-        [DisplayName("Log output (interactive)")]
-        [ScriptAlias("Interactive")]
-        [Description("Keep STDIN open even if not attached")]
-        [DefaultValue(true)]
-        public bool? Interactive { get; set; }
-
-        [DisplayName("Run in background (detach)")]
-        [ScriptAlias("RunInBackground")]
-        [Description("Detached mode: run command in the background")]
-        [DefaultValue(false)]
-        public bool? RunInBackground { get; set; }
-
-        [ScriptAlias("AdditionalArguments")]
-        [DisplayName("Addtional arguments")]
-        [Description("Additional arguments for the docker CLI exec command, such as --env key=value")]
-        public string AdditionalArguments { get; set; }
-
-        public override async Task ExecuteAsync(IOperationExecutionContext context)
+        if (string.IsNullOrEmpty(this.ContainerName))
         {
-            if (string.IsNullOrEmpty(this.ContainerName))
+            var maybeVariable = context.TryGetVariableValue(new RuntimeVariableName("DockerRepository", RuntimeValueType.Scalar));
+            if (maybeVariable == null)
             {
-                var maybeVariable = context.TryGetVariableValue(new RuntimeVariableName("DockerRepository", RuntimeValueType.Scalar));
-                if (maybeVariable == null)
-                {
-                    var maybeFunc = context.TryGetFunctionValue("DockerRepository");
-                    if (maybeFunc == null)
-                        throw new ExecutionFailureException($"A ContainerName was not specified and $DockerRepository could not be resolved.");
-                    else
-                        this.ContainerName = maybeFunc.Value.AsString()!.Split('/').Last();
-                }
+                var maybeFunc = context.TryGetFunctionValue("DockerRepository");
+                if (maybeFunc == null)
+                    throw new ExecutionFailureException($"A ContainerName was not specified and $DockerRepository could not be resolved.");
                 else
-                    this.ContainerName = maybeVariable.Value.AsString()!.Split('/').Last();
+                    this.ContainerName = maybeFunc.Value.AsString()!.Split('/').Last();
             }
-
-            var escapeArg = GetEscapeArg(context);
-
-            var args = new StringBuilder("exec ");
-            if (this.RunInBackground ?? false)
-                args.Append("--detach ");
-            if (this.Interactive ?? true)
-                args.Append("-i ");
-            if (!string.IsNullOrWhiteSpace(this.WorkDir))
-                args.Append($"--workdir {escapeArg(this.WorkDir)} ");
-
-            if (!string.IsNullOrWhiteSpace(this.AdditionalArguments))
-                args.Append($"{this.AdditionalArguments} ");
-
-            args.Append($"{escapeArg(this.ContainerName)} {this.Command}");
-
-            var client = await DockerClientEx.CreateAsync(this, context);
-            await client.DockerAsync(args.ToString(), true);
+            else
+                this.ContainerName = maybeVariable.Value.AsString()!.Split('/').Last();
         }
 
-        protected override ExtendedRichDescription GetDescription(IOperationConfiguration config)
-        {
-            return new ExtendedRichDescription(
-                new RichDescription(
-                    "Execute ",
-                    new Hilite(config[nameof(Command)]),
-                    " on running container named ",
-                    new Hilite(config[nameof(ContainerName)])
-                )
-            );
-        }
+        var remoteProcessExecuter = await context.Agent.GetServiceAsync<IRemoteProcessExecuter>();
+
+        var args = new StringBuilder("exec ");
+        if (this.RunInBackground ?? false)
+            args.Append("--detach ");
+        if (this.Interactive ?? true)
+            args.Append("-i ");
+        if (!string.IsNullOrWhiteSpace(this.WorkDir))
+            args.Append($"--workdir {remoteProcessExecuter.EscapeArg(this.WorkDir)} ");
+
+        if (!string.IsNullOrWhiteSpace(this.AdditionalArguments))
+            args.Append($"{this.AdditionalArguments} ");
+
+        args.Append($"{remoteProcessExecuter.EscapeArg(this.ContainerName)} {this.Command}");
+
+        var client = await DockerClientEx.CreateAsync(this, context);
+        await client.DockerAsync(args.ToString(), true);
+    }
+
+    protected override ExtendedRichDescription GetDescription(IOperationConfiguration config)
+    {
+        return new ExtendedRichDescription(
+            new RichDescription(
+                "Execute ",
+                new Hilite(config[nameof(Command)]),
+                " on running container named ",
+                new Hilite(config[nameof(ContainerName)])
+            )
+        );
     }
 }
