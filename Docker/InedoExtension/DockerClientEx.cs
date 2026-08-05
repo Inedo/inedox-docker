@@ -86,6 +86,29 @@ internal sealed class DockerClientEx
             context.Log.LogError($"Failed to login to Docker registry \"{repositoryParts[0]}\" with exit code {ex.ExitCode}");
         }
     }
+    
+
+    public async Task LogoutAsync(DockerRepository repoResource)
+    {
+        if (repoResource == null)
+            return;
+        
+        var repository = repoResource.GetRepository(context)
+            ?? throw new ExecutionFailureException($"Docker repository did not specify a usable repository name.");
+
+        var repositoryParts = repository.Split('/');
+        if (repositoryParts.Length < 2)
+            throw new ExecutionFailureException($"Docker repository specified an invalid repository format: \"{repository}\"");
+
+        try
+        {
+            await this.client.DockerLogoutAsync(repositoryParts[0], context.CancellationToken);
+        }
+        catch(DockerException ex)
+        {
+            context.Log.LogError($"Failed to logout of Docker registry \"{repositoryParts[0]}\" with exit code {ex.ExitCode}");
+        }
+    }
     public Task LogoutAsync() => client.DockerLogoutAsync(this.context.CancellationToken);
 
     public async Task<int> DockerAsync(string args, bool processBuildErrors = false, bool failOnErrors = true)

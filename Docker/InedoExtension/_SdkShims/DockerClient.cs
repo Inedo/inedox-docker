@@ -222,6 +222,12 @@ public sealed class DockerClient
         this.loggedInRegistry = registry;
     }
 
+    public async Task DockerLogoutAsync(string registry, CancellationToken cancellationToken = default)
+    {
+        this.loggedInRegistry = registry;
+        await DockerLogoutAsync(cancellationToken);
+    }
+
     public async Task DockerLogoutAsync(CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrEmpty(this.loggedInRegistry))
