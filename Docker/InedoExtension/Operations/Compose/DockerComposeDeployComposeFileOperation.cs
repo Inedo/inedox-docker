@@ -1,13 +1,8 @@
 ﻿#nullable enable
 
-using System.ComponentModel;
-using System.IO;
-using System.Threading.Tasks;
 using Inedo.Agents;
 using Inedo.Diagnostics;
-using Inedo.Documentation;
 using Inedo.ExecutionEngine.Executer;
-using Inedo.Extensibility;
 using Inedo.Extensibility.Operations;
 
 namespace Inedo.Extensions.Docker.Operations.Compose;
