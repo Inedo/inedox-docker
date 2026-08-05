@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
+using System.Text;
 using System.Threading.Tasks;
 using Inedo.Agents;
 using Inedo.Diagnostics;
@@ -19,164 +20,84 @@ namespace Inedo.Extensions.Docker.Operations.Compose
     {
         protected virtual string Command => null;
 
-        [Required]
+        [ScriptAlias("ComposeFile")]
+        [DisplayName("Compose file path")]
+        [DefaultValue("docker-compose.yml")]
+        public string ComposeFile { get; set; }
+
+        [ScriptAlias("EnvFile")]
+        [Description(".env File")]
+        public string EnvFile { get; set; }
+
+        [ScriptAlias("WorkingDirectory")]
+        [DisplayName("Working directory")]
+        [PlaceholderText("$WorkingDirectory")]
+        public string WorkingDirectory { get; set; }
+
+
+        [Category("Advanced")]
         [ScriptAlias("ProjectName")]
         [DisplayName("Project name")]
         public string ProjectName { get; set; }
 
-        [ScriptAlias("ComposeYaml")]
-        [DisplayName("Compose file (YAML)")]
-        [Description("You can specify the path to the \"docker-compose.yaml\" or this can be the compose file contents, eg. $FileContents(docker-compose.yml) or $ConfigurationFileText(Integration, docker-compose.yaml)")]
-        [FieldEditMode(FieldEditMode.Multiline)]
-        [PlaceholderText("eg. $FileContents(docker-compose.yml)")]
-        public string ComposeFileYaml { get; set; }
 
-        [ScriptAlias("WorkingDirectory")]
-        [DisplayName("Working directory")]
-        public string WorkingDirectory { get; set; }
+        [Category("Advanced")]
+        [ScriptAlias("Profile")]
+        [DisplayName("Profile")]
+        public string Profile { get; set; }
+
+
+        [Category("Advanced")]
+        [ScriptAlias("AddArgs")]
+        [DisplayName("Additional docker compose arguments")]
+        [FieldEditMode(FieldEditMode.Multiline)]
+        public virtual IEnumerable<string> AddArgs { get; set; }
 
         [Category("Advanced")]
         [DefaultValue(false)]
         [ScriptAlias("Verbose")]
         public bool Verbose { get; set; }
 
-        [Category("Advanced")]
-        [ScriptAlias("AddArgs")]
-        [DisplayName("Additional docker-compose arguments")]
-        [FieldEditMode(FieldEditMode.Multiline)]
-        public virtual IEnumerable<string> AddArgs { get; set; }
-
-        [Category("Source")]
-        [ScriptAlias("Source")]
-        [DisplayName("Container source")]
-        [SuggestableValue(typeof(RepositoryResourceSuggestionProvider))]
-        public string ContainerSource { get; set; }
-
-        protected async Task RunDockerComposeAsync(IOperationExecutionContext context, params string[] args)
+        protected async virtual Task RunDockerComposeAsync(IOperationExecutionContext context, params string[] args)
         {
-            bool hasContainerSource = !string.IsNullOrWhiteSpace(this.ContainerSource);
-
-            if (hasContainerSource)
-                await this.LoginAsync(context, this.ContainerSource);
-            try
-            {
-                await this.RunDockerComposeAsync(context, (IEnumerable<string>)args);
-            }
-            finally
-            {
-                if (hasContainerSource)
-                    await this.LogoutAsync(context, this.ContainerSource);
-            }
-        }
-
-        protected virtual async Task RunDockerComposeAsync(IOperationExecutionContext context, IEnumerable<string> args)
-        {
-
             var fileOps = await context.Agent.TryGetServiceAsync<ILinuxFileOperationsExecuter>() ?? await context.Agent.GetServiceAsync<IFileOperationsExecuter>();
-            var procExec = await context.Agent.GetServiceAsync<IRemoteProcessExecuter>();
             var workingDirectory = context.ResolvePath(string.IsNullOrWhiteSpace(this.WorkingDirectory) ? context.WorkingDirectory : this.WorkingDirectory);
-
+            
             this.LogDebug($"Working directory: {workingDirectory}");
             await fileOps.CreateDirectoryAsync(workingDirectory);
 
-            var hasComposeYaml = !string.IsNullOrWhiteSpace(this.ComposeFileYaml);
-            var isYamlPathSpecified = hasComposeYaml && (this.ComposeFileYaml.EndsWith(".yml", StringComparison.OrdinalIgnoreCase) || this.ComposeFileYaml.EndsWith(".yaml", StringComparison.OrdinalIgnoreCase));
-            
-            string composeFileName = null;
-            if (isYamlPathSpecified)
-            {
-                composeFileName = context.ResolvePath(this.ComposeFileYaml, workingDirectory);
-            }
-            else if(hasComposeYaml)
-            {
-                await fileOps.CreateDirectoryAsync(fileOps.CombinePath(workingDirectory, "scripts"));
-                composeFileName = fileOps.CombinePath(workingDirectory, "scripts", Guid.NewGuid().ToString("N") + ".yml");
-            }
+            var client = await DockerClientEx.CreateAsync(this, context);
 
-            var startInfo = new RemoteProcessStartInfo
-            {
-                FileName = "docker-compose",
-                WorkingDirectory = workingDirectory
-            };
+            var configText = this.CreateExecutionParamenters(client.EscapeArg, args);
 
-            startInfo.AppendArgs(procExec, new[]
-            {
-                "--project-name",
-                this.ProjectName,
-                this.Verbose ? "--verbose" : null,
-                "--no-ansi",
-                this.Command
-            }
-            .Concat(this.AddArgs ?? new string[0])
-            .Concat(args ?? new string[0])
-            .Where(arg => arg != null));
+            await client.DockerAsync(configText, true);
+        }
 
-            if (hasComposeYaml)
-            {
-                startInfo.AppendArgs(procExec, new[] {
-                    "--file",
-                    composeFileName
-                });
-            }
+        protected virtual string CreateExecutionParamenters(Func<string, string> escapeFunc, params string[] args)
+        {
+            var configText = new StringBuilder("compose ");
 
-            try
-            {
-                if (hasComposeYaml && !isYamlPathSpecified)
-                    await fileOps.WriteAllTextAsync(composeFileName, this.ComposeFileYaml);
-               
-                this.LogDebug($"Running command: {startInfo.FileName} {startInfo.Arguments}");
+            if (!string.IsNullOrWhiteSpace(this.ProjectName))
+                configText.Append($"--project-name {this.ProjectName} ");
 
-                int? exitCode;
-                using (var process = procExec.CreateProcess(startInfo))
-                {
-                    process.OutputDataReceived += (s, e) => this.LogProcessOutput(e.Data);
-                    process.ErrorDataReceived += (s, e) => this.LogProcessError(e.Data);
-                    process.Start();
-                    await process.WaitAsync(context.CancellationToken);
-                    exitCode = process.ExitCode;
-                }
+            if (!string.IsNullOrWhiteSpace(this.Profile))
+                configText.Append($"--profile {this.Profile} ");
 
-                if (exitCode == 0)
-                {
-                    this.LogInformation("Process exit code indicates success.");
-                    return;
-                }
+            if (!string.IsNullOrWhiteSpace(this.EnvFile))
+                configText.Append($"--env-file {escapeFunc(this.EnvFile)} ");
 
-                this.LogError($"Process exit code indicates failure. ({AH.CoalesceString(exitCode, "(unknown)")})");
-            }
-            finally
-            {
-                if (hasComposeYaml && !isYamlPathSpecified)
-                {
-                    await fileOps.DeleteFileAsync(composeFileName);
-                }
-            }
+            if (!string.IsNullOrWhiteSpace(this.ComposeFile))
+                configText.Append($"--file {this.ComposeFile}");
 
-            // Command failed. Try to give a better error message if docker-compose isn't even installed.
-            var verifyInstalledStartInfo = new RemoteProcessStartInfo
-            {
-                FileName = fileOps is ILinuxFileOperationsExecuter ? "/usr/bin/which" : "System32\\where.exe",
-                Arguments = procExec.EscapeArg(startInfo.FileName),
-                WorkingDirectory = workingDirectory
-            };
+            if (this.Verbose)
+                configText.Append("--verbose ");
 
-            if (fileOps is ILinuxFileOperationsExecuter)
-                verifyInstalledStartInfo.Arguments = "-- " + verifyInstalledStartInfo.Arguments;
-            else
-                verifyInstalledStartInfo.FileName = fileOps.CombinePath(await procExec.GetEnvironmentVariableValueAsync("SystemRoot"), verifyInstalledStartInfo.FileName);
+            configText.Append($"--no-ansi ");
+            configText.Append($"{string.Join(' ', (this.AddArgs ?? []).Concat(args ?? []).Where(arg => arg != null))} ");
 
-            using (var process = procExec.CreateProcess(verifyInstalledStartInfo))
-            {
-                // Don't care about output.
-                process.Start();
-                await process.WaitAsync(context.CancellationToken);
+            configText.Append($"{this.Command} ");
 
-                // 0 = file exists, anything other than 0 or 1 = error trying to run which/where.exe
-                if (process.ExitCode == 1)
-                {
-                    this.LogWarning("Is docker-compose installed and in the PATH?");
-                }
-            }
+            return configText.ToString();
         }
 
         protected override void LogProcessError(string text) =>this.LogDebug(text);

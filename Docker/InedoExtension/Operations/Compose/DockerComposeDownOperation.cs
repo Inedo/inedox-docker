@@ -12,10 +12,11 @@ namespace Inedo.Extensions.Docker.Operations.Compose
     {
         protected override string Command => "down";
 
+        [Category("Advanced")]
         [DisplayName("Timeout (seconds)")]
         [ScriptAlias("Timeout")]
-        [DefaultValue(10)]
-        public int Timeout { get; set; } = 10;
+        [DefaultValue(60)]
+        public int Timeout { get; set; } = 60;
 
         public override Task ExecuteAsync(IOperationExecutionContext context)
         {
@@ -28,23 +29,12 @@ namespace Inedo.Extensions.Docker.Operations.Compose
 
         protected override ExtendedRichDescription GetDescription(IOperationConfiguration config)
         {
-            var shortDescription = new RichDescription(new Hilite("Remove"), " Docker Compose project ", new Hilite(config[nameof(ProjectName)]));
-
-            var details = new RichDescription();
-            var timeout = AH.NullIf(AH.ParseInt(config[nameof(Timeout)]), 10);
-            if (timeout.HasValue)
-            {
-                if (timeout == 0)
-                {
-                    details.AppendContent("with no time limit");
-                }
-                else
-                {
-                    details.AppendContent("with a time limit of ", new Hilite(timeout.ToString()), " seconds");
-                }
-            }
-
-            return new ExtendedRichDescription(shortDescription, details);
+            return new ExtendedRichDescription(
+                new RichDescription(
+                    "Runs docker compose up against ",
+                    new Hilite(config[nameof(ComposeFile)])
+                )
+            );
         }
     }
 }
