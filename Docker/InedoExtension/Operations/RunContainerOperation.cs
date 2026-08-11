@@ -125,7 +125,7 @@ public sealed class RunContainerOperation : DockerOperation
         finally
         {
             if (repoResource != null)
-                await client.LogoutAsync();
+                await client.DockerLogoutAsync(context.CancellationToken);
         }
 
         async Task<string?> getDockerRunTextAsync()

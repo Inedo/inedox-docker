@@ -95,14 +95,14 @@ public sealed class TagImageOperation : DockerOperation
             await client.DockerAsync($"tag {esc(originalRepositoryAndTag)} {esc(newRepositoryAndTag)}");
             if (originalRepository != newRepository)
             {
-                await client.LogoutAsync();
+                await client.DockerLogoutAsync(context.CancellationToken);
                 await client.LoginAsync(newRepoResource);
             }
             await client.DockerAsync($"push {esc(newRepositoryAndTag)}");
         }
         finally
         {
-            await client.LogoutAsync();
+            await client.DockerLogoutAsync(context.CancellationToken);
         }
 
         if (this.AttachToBuild)
