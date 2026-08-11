@@ -3,8 +3,8 @@ using Inedo.Web;
 
 namespace Inedo.Extensions.Docker.Operations.Compose;
 
-[Description("Starts a new container for the specified service and runs a command.")]
 [ScriptAlias("Compose-Run")]
+[Description("Starts a new container for the specified service and runs a command.")]
 public sealed class DockerComposeRunOperation : ComposeOperationBase
 {
     protected override string Command => "run";
@@ -12,17 +12,17 @@ public sealed class DockerComposeRunOperation : ComposeOperationBase
     [FieldEditMode(FieldEditMode.Multiline)]
     [ScriptAlias("Service")]
     [Required]
-    public string Service { get; set; }
+    public string? Service { get; set; }
 
     [DisplayName("Working directory in container")]
     [ScriptAlias("WorkDir")]
-    public string WorkDir { get; set; }
+    public string? WorkDir { get; set; }
 
     [Required]
     [DisplayName("Exec Command")]
     [ScriptAlias("ExecCommand")]
     [PlaceholderText("eg. sh -c \"echo a && echo b\"")]
-    public string ExecCommand { get; set; }
+    public string? ExecCommand { get; set; }
 
     [Category("Options")]
     [ScriptAlias("RunInteractively")]
@@ -35,7 +35,6 @@ public sealed class DockerComposeRunOperation : ComposeOperationBase
     [ScriptAlias("RemoveOrphans")]
     [DefaultValue(false)]
     public bool RemoveOrphans { get; set; } = false;
-
 
     [Category("Options")]
     [ScriptAlias("RemoveContainer")]
@@ -59,7 +58,7 @@ public sealed class DockerComposeRunOperation : ComposeOperationBase
         );
     }
 
-    protected override string CreateExecutionParamenters(Func<string, string> escapeFunc, params string[] args)
+    protected override string CreateExecutionParamenters(Func<string, string> escapeFunc, params string?[] args)
     {
         var command = base.CreateExecutionParamenters(escapeFunc, [..args, string.IsNullOrWhiteSpace(this.WorkDir) ? null : $"--workdir {escapeFunc(this.WorkDir)}"]);
 

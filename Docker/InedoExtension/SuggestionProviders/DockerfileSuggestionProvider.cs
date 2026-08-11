@@ -1,8 +1,4 @@
-﻿using System.Collections.Generic;
-using System.Linq;
-using System.Threading;
-using Inedo.Extensibility;
-using Inedo.Extensibility.RaftRepositories;
+﻿using Inedo.Extensibility.RaftRepositories;
 using Inedo.Web;
 
 namespace Inedo.Extensions.Docker.SuggestionProviders;

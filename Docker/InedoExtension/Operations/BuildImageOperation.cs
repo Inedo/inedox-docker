@@ -3,8 +3,6 @@ using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using Inedo.Agents;
-using Inedo.Diagnostics;
-using Inedo.Docker;
 using Inedo.ExecutionEngine;
 using Inedo.ExecutionEngine.Executer;
 using Inedo.Extensibility.Operations;
@@ -12,8 +10,6 @@ using Inedo.Extensibility.RaftRepositories;
 using Inedo.Extensions.Docker.SuggestionProviders;
 using Inedo.IO;
 using Inedo.Web;
-
-#nullable enable
 
 namespace Inedo.Extensions.Docker.Operations;
 
@@ -107,7 +103,7 @@ public sealed partial class BuildImageOperation : DockerOperation
 
         var repoResource = this.CreateRepository(context, this.RepositoryResourceName, this.LegacyRepositoryName);
 
-        var client = await DockerClientEx.CreateAsync(this, context);
+        var client = await DockerClient.CreateAsync(this, context);
 
         var esc = client.EscapeArg;
         var fileOps = await context.Agent.GetServiceAsync<IFileOperationsExecuter>();
@@ -158,7 +154,7 @@ public sealed partial class BuildImageOperation : DockerOperation
             buildArgs.Append($" {this.AdditionalArguments}");
         buildArgs.Append($" {esc(adjustForWsl(sourcePath))}");
 
-        await client.Docker2Async($"buildx build{buildArgs}", errorReceived: processProgress);
+        await client.DockerAsync($"buildx build{buildArgs}", errorReceived: processProgress);
 
         this.LogInformation("Docker build successful.");
 

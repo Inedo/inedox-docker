@@ -1,14 +1,7 @@
-﻿using System.ComponentModel;
-using System.Threading.Tasks;
-using Inedo.Diagnostics;
-using Inedo.Documentation;
-using Inedo.ExecutionEngine.Executer;
-using Inedo.Extensibility;
+﻿using Inedo.ExecutionEngine.Executer;
 using Inedo.Extensibility.Operations;
 using Inedo.Extensions.Docker.SuggestionProviders;
 using Inedo.Web;
-
-#nullable enable
 
 namespace Inedo.Extensions.Docker.Operations;
 
@@ -30,7 +23,7 @@ public sealed class DockerLoginOperation : DockerOperation
         var repoResource = this.CreateRepository(context, this.RepositoryResourceName, null) 
                                 ?? throw new ExecutionFailureException("Cannot find Docker Repository");
 
-        var client = await DockerClientEx.CreateAsync(this, context);
+        var client = await DockerClient.CreateAsync(this, context);
 
         this.LogInformation($"Logging in to Docker for the {this.RepositoryResourceName} repository.");
 

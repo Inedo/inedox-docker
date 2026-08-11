@@ -1,5 +1,4 @@
-﻿using Inedo.Diagnostics;
-using Inedo.ExecutionEngine.Executer;
+﻿using Inedo.ExecutionEngine.Executer;
 using Inedo.Extensibility.Credentials;
 using Inedo.Extensibility.Operations;
 using Inedo.Extensibility.SecureResources;
@@ -17,7 +16,7 @@ public abstract class DockerOperation : ExecuteOperation
     [DisplayName("Docker client path")]
     [ScriptAlias("DockerExePath")]
     [DefaultValue("$DockerExePath")]
-    public string DockerExePath { get; set; }
+    public string? DockerExePath { get; set; }
 
     [Category("Advanced")]
     [DisplayName("Use Docker (WSL)")]
@@ -25,10 +24,10 @@ public abstract class DockerOperation : ExecuteOperation
     [Description("When Docker for Windows and Docker on WSL are installed on the same server, Docker for Windows is preferred. Setting this will force Docker (WSL)")]
     public bool UseWsl { get; set; }
 
-    private protected DockerRepository CreateRepository(ICredentialResolutionContext context, string repositoryResourceName, string repositoryNameOverride)
+    private protected DockerRepository CreateRepository(ICredentialResolutionContext context, string? repositoryResourceName, string? repositoryNameOverride)
     {
         if (string.IsNullOrEmpty(repositoryResourceName))
-            throw new ExecutionFailureException($"A Docker repository was not specified.");
+            throw new ExecutionFailureException("A Docker repository was not specified.");
 
         var repository = SecureResource.Create(SecureResourceType.DockerRepository, repositoryResourceName, context) as DockerRepository
              ?? throw new ExecutionFailureException($"A Docker repository named \"{repositoryResourceName}\" was not found.");

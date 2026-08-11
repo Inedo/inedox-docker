@@ -4,8 +4,6 @@ using Inedo.ExecutionEngine;
 using Inedo.ExecutionEngine.Executer;
 using Inedo.Extensibility.Operations;
 
-#nullable enable
-
 namespace Inedo.Extensions.Docker.Operations;
 
 [ScriptAlias("Exec")]
@@ -78,8 +76,8 @@ public sealed class DockerExecOperation : DockerOperation
 
         args.Append($"{remoteProcessExecuter.EscapeArg(this.ContainerName)} {this.Command}");
 
-        var client = await DockerClientEx.CreateAsync(this, context);
-        await client.DockerAsync(args.ToString(), true);
+        var client = await DockerClient.CreateAsync(this, context);
+        await client.DockerAsync(args.ToString());
     }
 
     protected override ExtendedRichDescription GetDescription(IOperationConfiguration config)

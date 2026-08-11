@@ -3,8 +3,6 @@ using Inedo.Extensibility.Operations;
 using Inedo.Extensions.Docker.SuggestionProviders;
 using Inedo.Web;
 
-#nullable enable
-
 namespace Inedo.Extensions.Docker.Operations;
 
 [ScriptAlias("Tag")]
@@ -85,7 +83,7 @@ public sealed class TagImageOperation : DockerOperation
             throw new ExecutionFailureException($"Docker repository \"{this.NewRepositoryResourceName}\" has an unexpected name.");
         var newRepositoryAndTag = $"{newRepository}:{this.NewTag}".ToLower();
 
-        var client = await DockerClientEx.CreateAsync(this, context);
+        var client = await DockerClient.CreateAsync(this, context);
         var esc = client.EscapeArg;
 
         await client.LoginAsync(originalRepoResource);

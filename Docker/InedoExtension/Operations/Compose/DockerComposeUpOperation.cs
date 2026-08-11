@@ -3,8 +3,8 @@ using Inedo.Web;
 
 namespace Inedo.Extensions.Docker.Operations.Compose;
 
-[Description("Builds, (re)creates, and optionally starts containers for a Docker Compose project.")]
 [ScriptAlias("Compose-Up")]
+[Description("Builds, (re)creates, and optionally starts containers for a Docker Compose project.")]
 public sealed class DockerComposeUpOperation : ComposeOperationBase
 {
     protected override string Command => "up";
@@ -12,7 +12,7 @@ public sealed class DockerComposeUpOperation : ComposeOperationBase
     [FieldEditMode(FieldEditMode.Multiline)]
     [ScriptAlias("Services")]
     [PlaceholderText("(all services)")]
-    public IEnumerable<string> Services { get; set; }
+    public IEnumerable<string>? Services { get; set; }
 
     public enum RecreateCondition
     {
@@ -27,14 +27,6 @@ public sealed class DockerComposeUpOperation : ComposeOperationBase
     [ScriptAlias("Recreate")]
     [DefaultValue(RecreateCondition.IfChanged)]
     public RecreateCondition Recreate { get; set; } = RecreateCondition.IfChanged;
-
-    public enum BuildCondition
-    {
-        IfMissing,
-        Always,
-        Never
-    }
-
 
     [Category("Options")]
     [ScriptAlias("RunInBackground")]
@@ -83,14 +75,13 @@ public sealed class DockerComposeUpOperation : ComposeOperationBase
         );
     }
 
-    protected override string CreateExecutionParamenters(Func<string, string> escapeFunc, params string[] args)
+    protected override string CreateExecutionParamenters(Func<string, string> escapeFunc, params string?[] args)
     {
         var commandArgs = base.CreateExecutionParamenters(escapeFunc, args);
 
-        if(this.Services.Any())
-        {
-            commandArgs += string.Join(" ", ["--", .. Services]);
-        }
+        var services = this.Services?.ToArray() ?? [];
+        if (services.Length > 0)
+            commandArgs += string.Join(" ", ["--", .. services]);
 
         return commandArgs;
     }
@@ -103,5 +94,12 @@ public sealed class DockerComposeUpOperation : ComposeOperationBase
                 new Hilite(config[nameof(ComposeFile)])
             )
         );
+    }
+
+    public enum BuildCondition
+    {
+        IfMissing,
+        Always,
+        Never
     }
 }

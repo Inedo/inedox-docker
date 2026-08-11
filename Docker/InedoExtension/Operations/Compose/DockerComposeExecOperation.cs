@@ -3,8 +3,8 @@ using Inedo.Web;
 
 namespace Inedo.Extensions.Docker.Operations.Compose;
 
-[Description("Runs commands on currently running containers that were started using Docker::Compose-Up.")]
 [ScriptAlias("Compose-Exec")]
+[Description("Runs commands on currently running containers that were started using Docker::Compose-Up.")]
 public sealed class DockerComposeExecOperation : ComposeOperationBase
 {
     protected override string Command => "exec";
@@ -12,17 +12,17 @@ public sealed class DockerComposeExecOperation : ComposeOperationBase
     [FieldEditMode(FieldEditMode.Multiline)]
     [ScriptAlias("Service")]
     [Required]
-    public string Service { get; set; }
+    public string? Service { get; set; }
 
     [DisplayName("Working directory in container")]
     [ScriptAlias("WorkDir")]
-    public string WorkDir { get; set; }
+    public string? WorkDir { get; set; }
 
     [Required]
     [DisplayName("Exec Command")]
     [ScriptAlias("ExecCommand")]
     [PlaceholderText("eg. sh -c \"echo a && echo b\"")]
-    public string ExecCommand { get; set; }
+    public string? ExecCommand { get; set; }
 
     [Category("Options")]
     [ScriptAlias("RunInBackground")]
@@ -37,7 +37,7 @@ public sealed class DockerComposeExecOperation : ComposeOperationBase
         );
     }
 
-    protected override string CreateExecutionParamenters(Func<string, string> escapeFunc, params string[] args)
+    protected override string CreateExecutionParamenters(Func<string, string> escapeFunc, params string?[] args)
     {
         var command = base.CreateExecutionParamenters(escapeFunc, [..args, string.IsNullOrWhiteSpace(this.WorkDir) ? null : $"--workdir {escapeFunc(this.WorkDir)}"]);
 

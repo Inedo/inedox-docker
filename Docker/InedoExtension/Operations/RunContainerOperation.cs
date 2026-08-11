@@ -5,8 +5,6 @@ using Inedo.Extensibility.Operations;
 using Inedo.Extensions.Docker.SuggestionProviders;
 using Inedo.Web;
 
-#nullable enable
-
 namespace Inedo.Extensions.Docker.Operations;
 
 [ScriptAlias("Run")]
@@ -99,7 +97,7 @@ public sealed class RunContainerOperation : DockerOperation
 
         var repositoryAndTag = $"{repository}:{this.Tag}".ToLower();
 
-        var client = await DockerClientEx.CreateAsync(this, context);
+        var client = await DockerClient.CreateAsync(this, context);
 
         var dockerRunText = await getDockerRunTextAsync();
 
@@ -120,7 +118,7 @@ public sealed class RunContainerOperation : DockerOperation
                 runArgs.Append($" {this.AdditionalArguments}");
             runArgs.Append($" {client.EscapeArg(repositoryAndTag)}");
 
-            await client.DockerAsync(runArgs.ToString(), true);
+            await client.DockerAsync(runArgs.ToString());
         }
         finally
         {

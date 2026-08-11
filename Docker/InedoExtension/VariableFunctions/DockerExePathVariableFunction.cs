@@ -1,12 +1,10 @@
-﻿using Inedo.Extensibility;
-using Inedo.Extensibility.VariableFunctions;
+﻿using Inedo.Extensibility.VariableFunctions;
 
-namespace Inedo.Extensions.Docker.VariableFunctions
+namespace Inedo.Extensions.Docker.VariableFunctions;
+
+[ScriptAlias("DockerExePath")]
+[ExtensionConfigurationVariable(Type = ExpectedValueDataType.String)]
+public sealed class DockerExePathVariableFunction : ScalarVariableFunction
 {
-    [ScriptAlias("DockerExePath")]
-    [ExtensionConfigurationVariable(Type = ExpectedValueDataType.String)]
-    public sealed class DockerExePathVariableFunction : ScalarVariableFunction
-    {
-        protected override object EvaluateScalar(IVariableFunctionContext context) => "docker";
-    }
+    protected override object EvaluateScalar(IVariableFunctionContext context) => "docker";
 }

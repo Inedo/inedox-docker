@@ -1,14 +1,6 @@
-﻿using System;
-using System.ComponentModel;
-using System.Linq;
-using System.Threading.Tasks;
-using Inedo.Documentation;
-using Inedo.ExecutionEngine;
+﻿using Inedo.ExecutionEngine;
 using Inedo.ExecutionEngine.Executer;
-using Inedo.Extensibility;
 using Inedo.Extensibility.Operations;
-
-#nullable enable
 
 namespace Inedo.Extensions.Docker.Operations
 {
@@ -49,7 +41,7 @@ namespace Inedo.Extensions.Docker.Operations
                     this.ContainerName = maybeVariable.Value.AsString()!.Split('/').Last();
             }
             
-            var client = await DockerClientEx.CreateAsync(this, context);
+            var client = await DockerClient.CreateAsync(this, context);
 
             await client.DockerAsync($"stop {client.EscapeArg(this.ContainerName)}", failOnErrors: this.FailIfContinerDoesNotExist);
 

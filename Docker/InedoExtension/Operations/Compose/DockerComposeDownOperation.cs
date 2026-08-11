@@ -2,8 +2,8 @@
 
 namespace Inedo.Extensions.Docker.Operations.Compose;
 
-[Description("Stops containers and removes containers, networks, volumes, and images created by Docker::Compose-Up.")]
 [ScriptAlias("Compose-Down")]
+[Description("Stops containers and removes containers, networks, volumes, and images created by Docker::Compose-Up.")]
 public sealed class DockerComposeDownOperation : ComposeOperationBase
 {
     protected override string Command => "down";
