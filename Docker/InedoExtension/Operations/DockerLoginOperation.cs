@@ -28,7 +28,6 @@ public sealed class DockerLoginOperation : DockerOperation
         this.LogInformation($"Logging in to Docker for the {this.RepositoryResourceName} repository.");
 
         await client.LoginAsync(repoResource);
-
     }
 
     protected override ExtendedRichDescription GetDescription(IOperationConfiguration config)

@@ -1,7 +1,6 @@
 ﻿using System.Collections.Concurrent;
 using System.Text;
 using System.Text.Json;
-using System.Text.RegularExpressions;
 using Inedo.Agents;
 using Inedo.ExecutionEngine;
 using Inedo.ExecutionEngine.Executer;
@@ -18,6 +17,8 @@ namespace Inedo.Extensions.Docker.Operations;
 [Description("Builds a Docker image using a Dockerfile template and pushes it to the specified repository.")]
 public sealed partial class BuildImageOperation : DockerOperation
 {
+    private readonly ConcurrentDictionary<string, ActiveVertex> vertices = [];
+
     [ScriptAlias("From")]
     [DisplayName("From")]
     [PlaceholderText("$WorkingDirectory")]
@@ -68,15 +69,16 @@ public sealed partial class BuildImageOperation : DockerOperation
     [DisplayName("Addtional arguments")]
     [Description("Additional arguments for the docker CLI build command, such as --build-arg=ARG_NAME=value")]
     public string? AdditionalArguments { get; set; }
+    [DefaultValue(true)]
     [Category("Advanced")]
     [ScriptAlias("AttachToBuild")]
     [DisplayName("Attach to build")]
-    [DefaultValue(true)]
     public bool AttachToBuild { get; set; } = true;
+    [DefaultValue(true)]
     [Category("Advanced")]
     [ScriptAlias("RemoveAfterPush")]
     [DisplayName("Remove after pushing")]
-    public bool RemoveAfterPush { get; set; }
+    public bool RemoveAfterPush { get; set; } = true;
 
     public override OperationProgress? GetProgress()
     {
@@ -194,7 +196,7 @@ public sealed partial class BuildImageOperation : DockerOperation
                 {
                     if (!vertices.TryGetValue(v.Digest, out var vertex))
                     {
-                        vertex = new ActiveVertex(v.Name, context.Log.CreateNestedLog(GetVertexName(v.Name)));
+                        vertex = new ActiveVertex(v.Name, context.Log.CreateNestedLog(v.Name));
                         vertices[v.Digest] = vertex;
                     }
                     else
@@ -233,16 +235,6 @@ public sealed partial class BuildImageOperation : DockerOperation
         }
     }
 
-    private static string GetVertexName(string rawName)
-    {
-        if (rawName.Length > 50)
-            return rawName[..50];
-        else
-            return rawName;
-    }
-
-    private readonly ConcurrentDictionary<string, ActiveVertex> vertices = [];
-
     private sealed class ActiveVertex(string name, IScopedLog log)
     {
         public string Name { get; } = name;
@@ -266,7 +258,4 @@ public sealed partial class BuildImageOperation : DockerOperation
             )
         );
     }
-
-    [GeneratedRegex(@"\A[0-9a-f]+:\s*Waiting")]
-    private static partial Regex WaitingRegex();
 }

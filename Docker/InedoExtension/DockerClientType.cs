@@ -1,5 +1,4 @@
-﻿
-namespace Inedo.Extensions.Docker;
+﻿namespace Inedo.Extensions.Docker;
 
 internal enum DockerClientType
 {

@@ -11,24 +11,23 @@ namespace Inedo.Extensions.Docker;
 internal sealed class DockerClient
 {
     private readonly IRemoteProcessExecuter remoteProcessExecuter;
-    private readonly DockerClientType? type;
     private readonly string? dockerExecPath;
     private string? loggedInRegistry;
     private readonly IOperationExecutionContext context;
     private readonly Func<string, string> escapeArg;
 
-    public string EscapeArg(string arg) => this.escapeArg(arg);
-
     private DockerClient(IOperationExecutionContext context, Func<string, string> escapeArg, DockerClientType? type, string? dockerExePath)
     {
         this.remoteProcessExecuter = context.Agent.GetService<IRemoteProcessExecuter>();
-        this.type = type;
+        this.ClientType = type;
         this.dockerExecPath = dockerExePath;
         this.context = context;
         this.escapeArg = escapeArg;
     }
 
-    public DockerClientType? ClientType => this.type;
+    public DockerClientType? ClientType { get; }
+
+    public string EscapeArg(string arg) => this.escapeArg(arg);
 
     public static async Task<DockerClient> CreateAsync(DockerOperation operation, IOperationExecutionContext context)
     {
@@ -307,7 +306,6 @@ internal sealed class DockerClient
             return null;
         }
 
-
         var res2 = await CheckForDockerAsync(proccessExec, DockerClientType.Windows, cancellationToken);
         if (res2.HasValue)
             return (DockerClientType.Windows, res2.GetValueOrDefault());
@@ -321,15 +319,15 @@ internal sealed class DockerClient
 
     private RemoteProcessStartInfo NewDockerStartInfo(string args, bool useUTF8ForStandardOutput = false, bool redirectStandardInput = false) => new()
     {
-        FileName = this.type switch
+        FileName = this.ClientType switch
         {
             null => this.dockerExecPath,
             DockerClientType.Linux => "docker",
             DockerClientType.Windows => "docker.exe",
             DockerClientType.Wsl => "wsl.exe",
-            _ => throw new InvalidOperationException($"Unexpected DockerClientType:{this.type}")
+            _ => throw new InvalidOperationException($"Unexpected DockerClientType:{this.ClientType}")
         },
-        Arguments = type == DockerClientType.Wsl ? $"docker {args}" : args,
+        Arguments = ClientType == DockerClientType.Wsl ? $"docker {args}" : args,
         UseUTF8ForStandardOutput = useUTF8ForStandardOutput,
         RedirectStandardInput = redirectStandardInput
     };
