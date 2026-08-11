@@ -136,6 +136,8 @@ internal sealed class DockerClient
         else
             handleError = (_, e) => this.context.Log.LogError(e.Data);
 
+        process.OutputDataReceived += handleOutput;
+        process.ErrorDataReceived += handleError;
 
         this.context.Log.LogDebug($"Executing docker {args}");
 

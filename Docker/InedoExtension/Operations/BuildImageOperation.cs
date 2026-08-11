@@ -204,6 +204,9 @@ public sealed partial class BuildImageOperation : DockerOperation
                         if (v.Completed.HasValue && !vertex.Completed)
                             vertex.Completed = true;
                     }
+
+                    if (!string.IsNullOrWhiteSpace(v.Error))
+                        vertex.Log.LogError(v.Error.Trim());
                 }
             }
 
@@ -226,7 +229,7 @@ public sealed partial class BuildImageOperation : DockerOperation
                     if (this.vertices.TryGetValue(l.Vertex, out var vertex))
                     {
                         vertex.Log.Log(
-                            l.Stream == 2 ? MessageLevel.Debug : MessageLevel.Debug,
+                            l.Stream == 2 ? MessageLevel.Information : MessageLevel.Debug,
                             Encoding.UTF8.GetString(l.Data).Trim()
                         );
                     }

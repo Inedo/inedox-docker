@@ -8,7 +8,7 @@ internal sealed partial class DockerClientJsonContext : JsonSerializerContext
 {
 }
 
-internal sealed record class Vertex(string Digest, string Name, DateTime? Started, DateTime? Completed);
+internal sealed record class Vertex(string Digest, string Name, DateTime? Started, DateTime? Completed, string? Error);
 
 internal sealed record class Status(string Id, string Vertex, string Name, long Current, DateTime Timestamp, DateTime Started, DateTime? Completed);
 
