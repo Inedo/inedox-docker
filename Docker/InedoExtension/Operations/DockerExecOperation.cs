@@ -5,7 +5,7 @@ using Inedo.Extensibility.Operations;
 
 namespace Inedo.Extensions.Docker.Operations;
 
-[ScriptAlias("Exec")]
+[ScriptAlias("Exec-Container")]
 [ScriptAlias("Docker-Exec", Obsolete = true)]
 [ScriptNamespace("Docker")]
 [Description("Attaches and runs a command in an already running container")]
