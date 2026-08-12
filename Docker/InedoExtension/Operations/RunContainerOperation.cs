@@ -27,7 +27,6 @@ public sealed class RunContainerOperation : DockerOperation
     [DisplayName("Docker Run Config")]
     [ScriptAlias("DockerRunConfig")]
     [ScriptAlias("ConfigFileName", Obsolete = true)]
-    [DefaultValue("DockerRun")]
     public string? DockerRunConfig { get; set; }
     [Category("Run Config")]
     [DisplayName("Docker Run Config instance")]
@@ -46,7 +45,7 @@ public sealed class RunContainerOperation : DockerOperation
     [DisplayName("Repository URL")]
     [ScriptAlias("RepositoryUrl")]
     [PlaceholderText("ex: mcr.microsoft.com/mssql/server")]
-    [Description("Repository URL is a public Docker Repository to pull an image without the need to login.  This overrides the Repository parameter.  ex: mcr.microsoft.com/mssql/server")]
+    [Description("Repository URL is a public Docker Repository to pull an image without the need to login. This overrides the Repository parameter. ex: mcr.microsoft.com/mssql/server")]
     public string? RepositoryUrl { get; set; }
 
     [Category("Advanced")]
@@ -78,12 +77,12 @@ public sealed class RunContainerOperation : DockerOperation
 
     public override async Task ExecuteAsync(IOperationExecutionContext context)
     {
-        if (string.IsNullOrEmpty(this.RepositoryResourceName) && string.IsNullOrWhiteSpace(this.RepositoryUrl))
-            throw new ExecutionFailureException($"A RepositoryResourceName or a RepositoryUrl was not specified.");
-        if (string.IsNullOrEmpty(this.Tag))
-            throw new ExecutionFailureException($"A Tag was not specified.");
+        if (string.IsNullOrWhiteSpace(this.RepositoryResourceName) && string.IsNullOrWhiteSpace(this.RepositoryUrl))
+            throw new ExecutionFailureException("Repository or RepositoryUrl must be specified.");
+        if (string.IsNullOrWhiteSpace(this.Tag))
+            throw new ExecutionFailureException("Tag was not specified.");
         if (!string.IsNullOrEmpty(this.DockerRunConfig) && string.IsNullOrEmpty(this.DockerRunConfigInstance))
-            throw new ExecutionFailureException($"An Instance is required when specifying a Docker Run Config.");
+            throw new ExecutionFailureException("DockerRunConfigInstance is required when DockerRunConfig is specified.");
 
         var repoResource = string.IsNullOrWhiteSpace(this.RepositoryUrl) ? this.CreateRepository(context, this.RepositoryResourceName, this.LegacyRepositoryName) : null;
         var repository = AH.NullIf(this.RepositoryUrl, string.Empty) ?? repoResource?.GetRepository(context);
@@ -94,37 +93,26 @@ public sealed class RunContainerOperation : DockerOperation
         if (string.IsNullOrEmpty(this.ContainerName))
             this.ContainerName = repository.Split('/').Last();
 
-
-        var repositoryAndTag = $"{repository}:{this.Tag}".ToLower();
+        var repositoryAndTag = $"{repository}:{this.Tag}".ToLowerInvariant();
 
         var client = await DockerClient.CreateAsync(this, context);
 
         var dockerRunText = await getDockerRunTextAsync();
 
-        if (repoResource != null)
-            await client.LoginAsync(repoResource);
-        try
-        {
-            await client.DockerAsync($"pull {client.EscapeArg(repositoryAndTag)}");
+        await client.DockerAsync($"pull {client.EscapeArg(repositoryAndTag)}");
 
-            var runArgs = new StringBuilder($"run --name {client.EscapeArg(this.ContainerName)}");
-            if (!string.IsNullOrEmpty(dockerRunText))
-                runArgs.Append($" {dockerRunText}");
-            if (this.RemoveOnExit)
-                runArgs.Append(" --rm");
-            if (this.RunInBackground ?? true)
-                runArgs.Append(" -d");
-            if (!string.IsNullOrWhiteSpace(AdditionalArguments))
-                runArgs.Append($" {this.AdditionalArguments}");
-            runArgs.Append($" {client.EscapeArg(repositoryAndTag)}");
+        var runArgs = new StringBuilder($"run --name {client.EscapeArg(this.ContainerName)}");
+        if (!string.IsNullOrEmpty(dockerRunText))
+            runArgs.Append($" {dockerRunText}");
+        if (this.RemoveOnExit)
+            runArgs.Append(" --rm");
+        if (this.RunInBackground ?? true)
+            runArgs.Append(" -d");
+        if (!string.IsNullOrWhiteSpace(AdditionalArguments))
+            runArgs.Append($" {this.AdditionalArguments}");
+        runArgs.Append($" {client.EscapeArg(repositoryAndTag)}");
 
-            await client.DockerAsync(runArgs.ToString());
-        }
-        finally
-        {
-            if (repoResource != null)
-                await client.DockerLogoutAsync(context.CancellationToken);
-        }
+        await client.DockerAsync(runArgs.ToString());
 
         async Task<string?> getDockerRunTextAsync()
         {
@@ -173,7 +161,7 @@ public sealed class RunContainerOperation : DockerOperation
         return new ExtendedRichDescription(
             new RichDescription(
                 "Run ",
-                new Hilite(config[nameof(RepositoryResourceName)] + ":" + config[nameof(Tag)]),
+                new Hilite($"{config[nameof(RepositoryResourceName)]}:{config[nameof(Tag)]}"),
                 " Docker image"
             ),
 

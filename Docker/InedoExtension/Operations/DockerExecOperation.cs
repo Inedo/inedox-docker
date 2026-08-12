@@ -1,6 +1,5 @@
 ﻿using System.Text;
 using Inedo.Agents;
-using Inedo.ExecutionEngine;
 using Inedo.ExecutionEngine.Executer;
 using Inedo.Extensibility.Operations;
 
@@ -31,13 +30,13 @@ public sealed class DockerExecOperation : DockerOperation
     [ScriptAlias("Interactive")]
     [Description("Keep stdin open even if not attached")]
     [DefaultValue(true)]
-    public bool? Interactive { get; set; }
+    public bool Interactive { get; set; } = true;
 
     [DisplayName("Run in background (detach)")]
     [ScriptAlias("RunInBackground")]
     [Description("Detached mode: run command in the background")]
     [DefaultValue(false)]
-    public bool? RunInBackground { get; set; }
+    public bool RunInBackground { get; set; }
 
     [ScriptAlias("AdditionalArguments")]
     [DisplayName("Addtional arguments")]
@@ -48,25 +47,19 @@ public sealed class DockerExecOperation : DockerOperation
     {
         if (string.IsNullOrEmpty(this.ContainerName))
         {
-            var maybeVariable = context.TryGetVariableValue(new RuntimeVariableName("DockerRepository", RuntimeValueType.Scalar));
-            if (maybeVariable == null)
-            {
-                var maybeFunc = context.TryGetFunctionValue("DockerRepository");
-                if (maybeFunc == null)
-                    throw new ExecutionFailureException($"A ContainerName was not specified and $DockerRepository could not be resolved.");
-                else
-                    this.ContainerName = maybeFunc.Value.AsString()!.Split('/').Last();
-            }
-            else
-                this.ContainerName = maybeVariable.Value.AsString()!.Split('/').Last();
+            var repo = (await context.ExpandVariablesAsync("$DockerRepository")).AsString();
+            if (string.IsNullOrWhiteSpace(repo))
+                throw new ExecutionFailureException("ContainerName was not specified and $DockerRepository could not be resolved.");
+
+            this.ContainerName = repo.Split('/').Last();
         }
 
         var remoteProcessExecuter = await context.Agent.GetServiceAsync<IRemoteProcessExecuter>();
 
         var args = new StringBuilder("exec ");
-        if (this.RunInBackground ?? false)
+        if (this.RunInBackground)
             args.Append("--detach ");
-        if (this.Interactive ?? true)
+        if (this.Interactive)
             args.Append("-i ");
         if (!string.IsNullOrWhiteSpace(this.WorkDir))
             args.Append($"--workdir {remoteProcessExecuter.EscapeArg(this.WorkDir)} ");
