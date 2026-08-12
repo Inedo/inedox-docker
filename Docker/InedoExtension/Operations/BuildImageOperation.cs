@@ -148,7 +148,7 @@ public sealed partial class BuildImageOperation : DockerOperation
         var repositoryAndTag = $"{repository}:{this.Tag}".ToLowerInvariant();
 
         var buildArgs = new StringBuilder();
-        buildArgs.Append(" --progress=rawjson");
+        buildArgs.Append(" --pull --progress=rawjson");
         buildArgs.Append($" --tag={esc(repositoryAndTag)}");
         if (PathEx.GetFileName(dockerfilePath) != "Dockerfile")
             buildArgs.Append($" --f {esc(adjustForWsl(dockerfilePath))}");
