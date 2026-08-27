@@ -28,7 +28,7 @@ public sealed partial class BuildImageOperation : DockerOperation
     [ScriptAlias("Source")]
     [DisplayName("Repository")]
     [SuggestableValue(typeof(RepositoryResourceSuggestionProvider))]
-    [DefaultValue("$DockerRepository")]
+    [DefaultValue("$DockerRepositoryResource")]
     public string? RepositoryResourceName { get; set; }
     [ScriptAlias("Tag")]
     [DefaultValue("$ReleaseNumber-pre.$BuildNumber")]

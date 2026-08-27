@@ -17,7 +17,7 @@ public sealed class RunContainerOperation : DockerOperation
     [ScriptAlias("Source", Obsolete = true)]
     [DisplayName("Repository")]
     [SuggestableValue(typeof(RepositoryResourceSuggestionProvider))]
-    [DefaultValue("$DockerRepository")]
+    [DefaultValue("$DockerRepositoryResource")]
     public string? RepositoryResourceName { get; set; }
     [ScriptAlias("Tag")]
     [DefaultValue("$DockerTag")]
@@ -54,6 +54,7 @@ public sealed class RunContainerOperation : DockerOperation
     [DefaultValue("unless-stopped")]
     [SuggestableValue("no", "on-failure", "always", "unless-stopped")]
     public string? RestartPolicy { get; set; }
+
     [Category("Advanced")]
     [DisplayName("Container name")]
     [ScriptAlias("ContainerName")]

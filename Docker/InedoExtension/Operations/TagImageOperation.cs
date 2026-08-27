@@ -18,7 +18,7 @@ public sealed class TagImageOperation : DockerOperation
     [ScriptAlias("Source")]
     [DisplayName("Repository")]
     [SuggestableValue(typeof(RepositoryResourceSuggestionProvider))]
-    [DefaultValue("$DockerRepository")]
+    [DefaultValue("$DockerRepositoryResource")]
     public string? RepositoryResourceName { get; set; }
     [Category("Source")]
     [ScriptAlias("OriginalTag")]

@@ -13,7 +13,7 @@ public sealed class DockerLoginOperation : DockerOperation
     [ScriptAlias("Repository")]
     [DisplayName("Repository")]
     [SuggestableValue(typeof(RepositoryResourceSuggestionProvider))]
-    [DefaultValue("$DockerRepository")]
+    [DefaultValue("$DockerRepositoryResource")]
     public string? RepositoryResourceName { get; set; }
 
     public override async Task ExecuteAsync(IOperationExecutionContext context)

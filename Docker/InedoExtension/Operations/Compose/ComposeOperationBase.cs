@@ -6,7 +6,6 @@ using Inedo.Web;
 namespace Inedo.Extensions.Docker.Operations.Compose;
 
 [Tag("docker-compose")]
-[DefaultProperty(nameof(ProjectName))]
 public abstract class ComposeOperationBase : DockerOperation
 {
     protected ComposeOperationBase()
@@ -15,7 +14,7 @@ public abstract class ComposeOperationBase : DockerOperation
 
     [ScriptAlias("ComposeFile")]
     [DisplayName("Compose file path")]
-    [DefaultValue("docker-compose.yml")]
+    [DefaultValue("compose.yaml")]
     public string? ComposeFile { get; set; }
 
     [ScriptAlias("EnvFile")]
