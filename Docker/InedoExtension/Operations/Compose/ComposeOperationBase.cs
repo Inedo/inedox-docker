@@ -1,4 +1,6 @@
-﻿using System.Text;
+﻿using System.Collections.Concurrent;
+using System.Text;
+using System.Text.Json;
 using Inedo.Agents;
 using Inedo.Extensibility.Operations;
 using Inedo.Web;
@@ -8,6 +10,7 @@ namespace Inedo.Extensions.Docker.Operations.Compose;
 [Tag("docker-compose")]
 public abstract class ComposeOperationBase : DockerOperation
 {
+
     protected ComposeOperationBase()
     {
     }
@@ -61,7 +64,17 @@ public abstract class ComposeOperationBase : DockerOperation
 
         var configText = this.CreateExecutionParamenters(client.EscapeArg, args);
 
-        await client.DockerAsync(configText);
+        this.LogDebug($"Executing docker compose {this.Command}");
+        await client.DockerAsync(configText, workingDirectory: workingDirectory, errorReceived: processProgress);
+
+        void processProgress(string rawjson)
+        {
+            // Improve this logging at some point
+            var node = JsonSerializer.Deserialize(rawjson, DockerComposeClientJsonContext.Default.ComposeLogNode);
+            if (node is null)
+                return;
+            this.LogDebug($"{node.Id}{(string.IsNullOrWhiteSpace(node.Parent_id) ? string.Empty : "(" + node.Parent_id + ")")}: {node.Text} {(node.Percent.HasValue ? node.Percent + "%" : string.Empty)}");
+        }
     }
 
     protected virtual string CreateExecutionParamenters(Func<string, string> escapeFunc, params string?[] args)
@@ -78,18 +91,21 @@ public abstract class ComposeOperationBase : DockerOperation
             configText.Append($"--env-file {escapeFunc(this.EnvFile)} ");
 
         if (!string.IsNullOrWhiteSpace(this.ComposeFile))
-            configText.Append($"--file {this.ComposeFile}");
+            configText.Append($"--file {this.ComposeFile} ");
+
+        configText.Append($"--ansi never  --progress=json ");
+
+        configText.Append($"{this.Command} ");
 
         if (this.Verbose)
             configText.Append("--verbose ");
 
-        configText.Append($"--no-ansi ");
         configText.Append($"{string.Join(' ', (this.AddArgs ?? []).Concat(args ?? []).Where(arg => arg != null))} ");
 
-        configText.Append($"{this.Command} ");
 
         return configText.ToString();
     }
 
     protected override void LogProcessError(string text) => this.LogDebug(text);
+
 }

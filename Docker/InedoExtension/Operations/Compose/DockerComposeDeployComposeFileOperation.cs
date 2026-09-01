@@ -40,7 +40,7 @@ public sealed class DockerComposeDeployComposeFileOperation : ExecuteOperation
 
         var deployer = (await context.TryGetServiceAsync<IConfigurationFileDeployer>())
                 ?? throw new ExecutionFailureException("Configuration files are not supported in this context.");
-        var fileOps = await context.TryGetServiceAsync<IFileOperationsExecuter>();
+        var fileOps = await context.Agent.GetServiceAsync<IFileOperationsExecuter>();
 
         this.LogDebug("Ensuring deployment path is created");
         var targetPath = string.IsNullOrEmpty(this.TargetDirectory)

@@ -120,9 +120,9 @@ internal sealed class DockerClient
         }
     }
 
-    public async Task<int> DockerAsync(string args, Action<string>? outputReceived = null, Action<string>? errorReceived = null, bool failOnErrors = true)
+    public async Task<int> DockerAsync(string args, string? workingDirectory = null, Action<string>? outputReceived = null, Action<string>? errorReceived = null, bool failOnErrors = true)
     {
-        await using var process = this.remoteProcessExecuter.CreateProcess(this.NewDockerStartInfo(args));
+        await using var process = this.remoteProcessExecuter.CreateProcess(this.NewDockerStartInfo(args, workingDirectory));
         
         EventHandler<ProcessDataReceivedEventArgs> handleOutput;
         if (outputReceived is not null)
@@ -319,7 +319,7 @@ internal sealed class DockerClient
         return null;
     }
 
-    private RemoteProcessStartInfo NewDockerStartInfo(string args, bool useUTF8ForStandardOutput = false, bool redirectStandardInput = false) => new()
+    private RemoteProcessStartInfo NewDockerStartInfo(string args, string? workingDirectory = null, bool useUTF8ForStandardOutput = false, bool redirectStandardInput = false) => new()
     {
         FileName = this.ClientType switch
         {
@@ -329,6 +329,7 @@ internal sealed class DockerClient
             DockerClientType.Wsl => "wsl.exe",
             _ => throw new InvalidOperationException($"Unexpected DockerClientType:{this.ClientType}")
         },
+        WorkingDirectory = workingDirectory,
         Arguments = ClientType == DockerClientType.Wsl ? $"docker {args}" : args,
         UseUTF8ForStandardOutput = useUTF8ForStandardOutput,
         RedirectStandardInput = redirectStandardInput
